@@ -10,6 +10,7 @@ function createTrader(config) {
     accountId,
     region,
     symbolSuffix = '',
+    symbolMap = {},
     riskPercent = 1,
     maxOpenPositions = 3,
     allowReal = false,
@@ -26,7 +27,7 @@ function createTrader(config) {
 
   // يُرجع نصاً يصف ما حدث، سواء نُفّذت الصفقة أو تم تجاوزها
   async function execute(symbol, signal) {
-    const mtSymbol = toMtSymbol(symbol, symbolSuffix);
+    const mtSymbol = toMtSymbol(symbol, symbolSuffix, symbolMap);
     const info = await checkAccount();
 
     const positions = await api.positions();

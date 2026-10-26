@@ -83,6 +83,7 @@ AUTO_TRADE=true
 | `METAAPI_ACCOUNT_ID` | | معرّف الحساب في MetaApi |
 | `METAAPI_REGION` | `new-york` | منطقة الحساب في MetaApi (`london`, `singapore`...) |
 | `MT_SYMBOL_SUFFIX` | فارغ | لاحقة الرموز عند وسيطك، مثل `m` في `XAUUSDm` |
+| `MT_SYMBOL_MAP` | فارغ | أسماء مختلفة عند وسيطك، مثل `XAU/USD=GOLD` في XM |
 | `AUTO_TRADE` | `false` | تشغيل التنفيذ الآلي عند بدء البوت |
 | `RISK_PERCENT` | `1` | نسبة المخاطرة من الرصيد لكل صفقة |
 | `MAX_OPEN_POSITIONS` | `3` | أقصى عدد للصفقات المفتوحة |

@@ -1,9 +1,20 @@
 // حسابات إدارة المخاطرة لتحويل الإشارة إلى صفقة: اسم الرمز في MT5، حجم اللوت، ومستويات الوقف والهدف.
 // كلها دوال بلا اتصال بالشبكة حتى يسهل اختبارها.
 
-// XAU/USD -> XAUUSD (بعض الوسطاء يضيفون لاحقة مثل XAUUSDm)
-function toMtSymbol(symbol, suffix = '') {
-  return symbol.replace('/', '') + suffix;
+// XAU/USD -> XAUUSD (بعض الوسطاء يضيفون لاحقة مثل XAUUSDm).
+// الخريطة تتجاوز ذلك لمن يسمّي الرمز باسم مختلف، مثل GOLD عند XM
+function toMtSymbol(symbol, suffix = '', map = {}) {
+  return map[symbol] ?? symbol.replace('/', '') + suffix;
+}
+
+// "XAU/USD=GOLD,EUR/USD=EURUSD" -> { 'XAU/USD': 'GOLD', 'EUR/USD': 'EURUSD' }
+function parseSymbolMap(text = '') {
+  const map = {};
+  for (const pair of text.split(',')) {
+    const [from, to] = pair.split('=').map((s) => s.trim());
+    if (from && to) map[from] = to;
+  }
+  return map;
 }
 
 // كم تساوي وحدة واحدة من عملة التسعير بعملة الحساب
@@ -58,4 +69,4 @@ function splitVolume(volume, minVolume, volumeStep) {
   return [half, roundTo(volume - half, d)];
 }
 
-module.exports = { toMtSymbol, quoteToAccountRate, lotSize, orderLevels, splitVolume };
+module.exports = { toMtSymbol, parseSymbolMap, quoteToAccountRate, lotSize, orderLevels, splitVolume };

@@ -4,6 +4,7 @@ const { fetchCandles } = require('./market');
 const { analyze, snapshot } = require('./strategy');
 const { formatSignal, formatSnapshot } = require('./format');
 const { createTrader } = require('./trader');
+const { parseSymbolMap } = require('./risk');
 
 const {
   TELEGRAM_BOT_TOKEN,
@@ -16,6 +17,7 @@ const {
   METAAPI_ACCOUNT_ID,
   METAAPI_REGION = 'new-york',
   MT_SYMBOL_SUFFIX = '',
+  MT_SYMBOL_MAP = '',
   AUTO_TRADE = 'false',
   RISK_PERCENT = '1',
   MAX_OPEN_POSITIONS = '3',
@@ -38,6 +40,7 @@ const trader =
         accountId: METAAPI_ACCOUNT_ID,
         region: METAAPI_REGION,
         symbolSuffix: MT_SYMBOL_SUFFIX,
+        symbolMap: parseSymbolMap(MT_SYMBOL_MAP),
         riskPercent: Number(RISK_PERCENT),
         maxOpenPositions: Number(MAX_OPEN_POSITIONS),
         allowReal: ALLOW_REAL_TRADING === 'true',

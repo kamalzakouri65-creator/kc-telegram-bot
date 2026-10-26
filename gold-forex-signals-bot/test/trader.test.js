@@ -1,11 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { toMtSymbol, quoteToAccountRate, lotSize, orderLevels, splitVolume } = require('../src/risk');
+const { toMtSymbol, parseSymbolMap, quoteToAccountRate, lotSize, orderLevels, splitVolume } = require('../src/risk');
 const { createTrader } = require('../src/trader');
 
 test('تحويل اسم الرمز إلى صيغة MT5', () => {
   assert.strictEqual(toMtSymbol('XAU/USD'), 'XAUUSD');
   assert.strictEqual(toMtSymbol('EUR/USD', 'm'), 'EURUSDm');
+  const map = parseSymbolMap('XAU/USD=GOLD, EUR/USD = EURUSD#');
+  assert.deepStrictEqual(map, { 'XAU/USD': 'GOLD', 'EUR/USD': 'EURUSD#' });
+  assert.strictEqual(toMtSymbol('XAU/USD', 'm', map), 'GOLD');
+  assert.strictEqual(toMtSymbol('GBP/USD', 'm', map), 'GBPUSDm');
 });
 
 test('تحويل عملة التسعير إلى عملة الحساب', () => {
