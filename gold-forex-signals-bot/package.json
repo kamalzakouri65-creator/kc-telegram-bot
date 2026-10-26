@@ -5,7 +5,8 @@
   "main": "src/bot.js",
   "scripts": {
     "start": "node src/bot.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "backtest": "node src/backtest.js"
   },
   "engines": {
     "node": ">=18"

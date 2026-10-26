@@ -15,6 +15,7 @@ function formatSignal(symbol, interval, s) {
     `🛑 وقف الخسارة: ${s.stopLoss.toFixed(d)}`,
     `🎯 الهدف 1: ${s.takeProfit1.toFixed(d)}`,
     `🎯 الهدف 2: ${s.takeProfit2.toFixed(d)}`,
+    ...(s.zone ? [`🧱 Order Block: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),
     '',
     `RSI: ${s.rsi.toFixed(1)} | ATR: ${s.atr.toFixed(d)}`,
     `🕒 ${s.time}`,

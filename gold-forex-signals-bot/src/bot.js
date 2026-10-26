@@ -2,6 +2,7 @@ require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { fetchCandles } = require('./market');
 const { analyze, snapshot } = require('./strategy');
+const { analyzeOrderBlock } = require('./orderblock');
 const { formatSignal, formatSnapshot } = require('./format');
 const { createTrader } = require('./trader');
 const { parseSymbolMap } = require('./risk');
@@ -13,6 +14,7 @@ const {
   SYMBOLS = 'XAU/USD,EUR/USD,GBP/USD,USD/JPY',
   INTERVAL = '1h',
   CHECK_EVERY_MINUTES = '15',
+  STRATEGY = 'ema-macd',
   METAAPI_TOKEN,
   METAAPI_ACCOUNT_ID,
   METAAPI_REGION = 'new-york',
@@ -26,6 +28,16 @@ const {
 
 if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !TWELVE_DATA_API_KEY) {
   console.error('خطأ: يجب تعريف TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID و TWELVE_DATA_API_KEY في ملف .env');
+  process.exit(1);
+}
+
+const strategies = {
+  'ema-macd': { analyze, label: 'EMA + MACD + RSI' },
+  'order-block': { analyze: analyzeOrderBlock, label: 'Order Block' },
+};
+const strategy = strategies[STRATEGY];
+if (!strategy) {
+  console.error(`خطأ: STRATEGY يجب أن تكون واحدة من: ${Object.keys(strategies).join(', ')}`);
   process.exit(1);
 }
 
@@ -62,7 +74,7 @@ async function scan({ force = false } = {}) {
   for (const symbol of symbols) {
     try {
       const candles = await fetchCandles(symbol, INTERVAL, TWELVE_DATA_API_KEY);
-      const signal = analyze(candles);
+      const signal = strategy.analyze(candles);
       if (signal) {
         const key = `${signal.side}@${signal.time}`;
         if (force || lastSent.get(symbol) !== key) {
@@ -99,6 +111,7 @@ bot.onText(/^\/start/, (msg) => {
     [
       '👋 أهلاً! أنا بوت إشارات الذهب والفوركس.',
       `أراقب: ${symbols.join(', ')} على إطار ${INTERVAL}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
+      `الاستراتيجية: ${strategy.label}`,
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',
