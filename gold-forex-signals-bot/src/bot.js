@@ -3,7 +3,9 @@ const TelegramBot = require('node-telegram-bot-api');
 const { fetchCandles } = require('./market');
 const { analyze, snapshot } = require('./strategy');
 const { analyzeOrderBlock } = require('./orderblock');
-const { formatSignal, formatSnapshot } = require('./format');
+const path = require('path');
+const { formatSignal, formatSnapshot, formatTradeEvent, formatResults } = require('./format');
+const { createTracker } = require('./tracker');
 const { createTrader } = require('./trader');
 const { parseSymbolMap } = require('./risk');
 
@@ -63,38 +65,40 @@ let autoTrade = Boolean(trader) && AUTO_TRADE === 'true';
 // أوامر التداول مسموحة لصاحب البوت فقط
 const isOwner = (msg) => String(msg.chat.id) === String(TELEGRAM_CHAT_ID);
 
-// آخر إشارة أُرسلت لكل رمز، حتى لا تتكرر نفس الإشارة على نفس الشمعة
-const lastSent = new Map();
+// كل إشارة أُرسلت تُحفظ وتُتابع حتى تصل للهدف أو الوقف، ويمنع ذلك تكرار نفس الإشارة
+const tracker = createTracker(path.join(__dirname, '..', 'data', 'trades.json'));
 
 // الخطة المجانية تسمح بـ 8 طلبات في الدقيقة، فننتظر بين الرموز
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// يُرجع الإشارات الجديدة، ونتائج الإشارات السابقة (هدف أو وقف) من نفس الشموع
 async function scan({ force = false } = {}) {
   const found = [];
+  const results = [];
   for (const symbol of symbols) {
     try {
       const candles = await fetchCandles(symbol, INTERVAL, TWELVE_DATA_API_KEY);
+      results.push(...tracker.update(symbol, INTERVAL, candles));
       const signal = strategy.analyze(candles);
       if (signal) {
-        const key = `${signal.side}@${signal.time}`;
-        if (force || lastSent.get(symbol) !== key) {
-          lastSent.set(symbol, key);
-          found.push({ symbol, signal, text: formatSignal(symbol, INTERVAL, signal) });
-        }
+        const isNew = !tracker.has(symbol, INTERVAL, signal);
+        if (isNew) tracker.add(symbol, INTERVAL, signal);
+        if (force || isNew) found.push({ symbol, signal, text: formatSignal(symbol, INTERVAL, signal) });
       }
     } catch (err) {
       console.error(`فشل تحليل ${symbol}:`, err.message);
     }
     await sleep(8000);
   }
-  return found;
+  return { found, results };
 }
 
 const send = (chatId, text) =>
   bot.sendMessage(chatId, text).catch((e) => console.error('فشل الإرسال:', e.message));
 
 async function scheduledScan() {
-  const found = await scan();
+  const { found, results } = await scan();
+  for (const r of results) await send(TELEGRAM_CHAT_ID, formatTradeEvent(r));
   for (const { symbol, signal, text } of found) {
     await send(TELEGRAM_CHAT_ID, text);
     if (autoTrade) {
@@ -116,6 +120,7 @@ bot.onText(/^\/start/, (msg) => {
       'الأوامر:',
       '/status — حالة السوق الآن',
       '/signal — فحص فوري للإشارات',
+      '/results — نتائج الإشارات السابقة (رابحة أو خاسرة)',
       '/account — الرصيد والصفقات المفتوحة في MT5',
       '/autotrade on|off — تشغيل أو إيقاف التداول الآلي',
       '',
@@ -141,7 +146,8 @@ bot.onText(/^\/status/, async (msg) => {
 
 bot.onText(/^\/signal/, async (msg) => {
   await bot.sendMessage(msg.chat.id, '🔎 جاري الفحص...');
-  const found = await scan({ force: true });
+  const { found, results } = await scan({ force: true });
+  for (const r of results) await send(msg.chat.id, formatTradeEvent(r));
   if (found.length === 0) {
     bot.sendMessage(msg.chat.id, 'لا توجد إشارة حالياً. الشروط غير مكتملة على أي زوج.');
     return;
@@ -149,6 +155,8 @@ bot.onText(/^\/signal/, async (msg) => {
   // الفحص اليدوي يعرض الإشارات فقط ولا يفتح صفقات، حتى لا تتكرر الصفقة نفسها
   for (const { text } of found) await bot.sendMessage(msg.chat.id, text);
 });
+
+bot.onText(/^\/results/, (msg) => send(msg.chat.id, formatResults(tracker.summary())));
 
 bot.onText(/^\/account/, async (msg) => {
   if (!isOwner(msg)) return;
