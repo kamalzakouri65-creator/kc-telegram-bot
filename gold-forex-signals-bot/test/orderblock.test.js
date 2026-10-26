@@ -74,4 +74,8 @@ test('الاختبار التاريخي يحسب نصف الصفقة عند ال
   assert.strictEqual(s.count, 1);
   assert.strictEqual(s.trades[0].r, 0.5); // (2R + -1R) / 2
   assert.strictEqual(s.wins, 1);
+
+  // سبريد 0.25 مع مخاطرة 1 يخصم 0.25R من الصفقة
+  const withSpread = backtest(toCandles(rows), fn, { spread: 0.25 });
+  assert.strictEqual(withSpread.trades[0].r, 0.25);
 });

@@ -1,11 +1,12 @@
 // اختبار استراتيجية على شموع تاريخية. النتائج بوحدة R (المخاطرة):
 // كل صفقة تُقسم نصفين، نصف عند الهدف 1 ونصف عند الهدف 2، وكلاهما بنفس الوقف.
 // إذا لمست الشمعة الوقف والهدف معاً نعتبر الوقف هو الذي ضُرب (تقدير متحفظ).
-// لا تُحسب العمولة ولا السبريد، فالنتيجة الحقيقية أقل قليلاً.
+// spread (بوحدة السعر، مثلاً 0.35 للذهب) يُخصم من كل صفقة بنسبته إلى المخاطرة،
+// وهو مهم جداً في الإطارات الصغيرة حيث الوقف قريب. العمولة غير محسوبة.
 
 const WINDOW = 500;
 
-function backtest(candles, analyzeFn) {
+function backtest(candles, analyzeFn, { spread = 0 } = {}) {
   const trades = [];
   let open = null;
 
@@ -22,7 +23,7 @@ function backtest(candles, analyzeFn) {
         else if (targetHit) half.result = (dir * (half.target - open.entry)) / risk;
       }
       if (open.halves.every((h) => h.result !== null)) {
-        const r = open.halves.reduce((sum, h) => sum + h.result, 0) / open.halves.length;
+        const r = open.halves.reduce((sum, h) => sum + h.result, 0) / open.halves.length - spread / risk;
         trades.push({ side: open.side, time: open.time, closedAt: c.time, r });
         open = null;
       }
@@ -75,21 +76,23 @@ function summarize(trades) {
 
 module.exports = { backtest };
 
-// التشغيل من سطر الأوامر: npm run backtest [-- XAU/USD 1h]
+// التشغيل من سطر الأوامر: npm run backtest [-- XAU/USD 1h 0.35]
 if (require.main === module) {
   require('dotenv').config();
   const { fetchCandles } = require('./market');
   const { analyze } = require('./strategy');
   const { analyzeOrderBlock } = require('./orderblock');
 
-  const [symbol = 'XAU/USD', interval = process.env.INTERVAL || '1h'] = process.argv.slice(2);
+  const [symbol = 'XAU/USD', interval = process.env.INTERVAL || '1h', spreadArg = '0'] = process.argv.slice(2);
+  const spread = Number(spreadArg);
   const strategies = { 'ema-macd': analyze, 'order-block': analyzeOrderBlock };
 
   (async () => {
     const candles = await fetchCandles(symbol, interval, process.env.TWELVE_DATA_API_KEY, 5000);
-    console.log(`${symbol} ${interval}: ${candles.length} شمعة من ${candles[0].time} إلى ${candles.at(-1).time}\n`);
+    console.log(`${symbol} ${interval}: ${candles.length} شمعة من ${candles[0].time} إلى ${candles.at(-1).time}`);
+    console.log(`السبريد المحسوب: ${spread}\n`);
     for (const [name, fn] of Object.entries(strategies)) {
-      const s = backtest(candles, fn);
+      const s = backtest(candles, fn, { spread });
       console.log(`== ${name} ==`);
       console.log(`الصفقات: ${s.count} | ربح: ${s.wins} | خسارة: ${s.losses} | نسبة الربح: ${(s.winRate * 100).toFixed(1)}%`);
       console.log(`المجموع: ${s.totalR.toFixed(1)}R | معامل الربح: ${s.profitFactor.toFixed(2)}`);
