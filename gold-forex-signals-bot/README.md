@@ -43,7 +43,7 @@ npm start
 | المتغير | الافتراضي | الوصف |
 |---|---|---|
 | `SYMBOLS` | `XAU/USD,EUR/USD,GBP/USD,USD/JPY` | الأزواج المراقبة |
-| `INTERVAL` | `1h` | إطار الشموع (`15min`, `1h`, `4h`, `1day`) |
+| `INTERVAL` | `1h` | إطار الشموع (`15min`, `1h`, `4h`, `1day`)، ويمكن أكثر من إطار مثل `1h,4h` |
 | `CHECK_EVERY_MINUTES` | `15` | كل كم دقيقة يفحص البوت |
 | `STRATEGY` | `ema-macd` | الاستراتيجية: `ema-macd` أو `order-block` |
 

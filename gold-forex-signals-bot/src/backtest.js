@@ -83,7 +83,7 @@ if (require.main === module) {
   const { analyze } = require('./strategy');
   const { analyzeOrderBlock } = require('./orderblock');
 
-  const [symbol = 'XAU/USD', interval = process.env.INTERVAL || '1h', spreadArg = '0'] = process.argv.slice(2);
+  const [symbol = 'XAU/USD', interval = (process.env.INTERVAL || '1h').split(',')[0], spreadArg = '0'] = process.argv.slice(2);
   const spread = Number(spreadArg);
   const strategies = { 'ema-macd': analyze, 'order-block': analyzeOrderBlock };
 

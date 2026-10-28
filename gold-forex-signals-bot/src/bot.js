@@ -43,7 +43,11 @@ if (!strategy) {
   process.exit(1);
 }
 
-const symbols = SYMBOLS.split(',').map((s) => s.trim()).filter(Boolean);
+const list = (text) => text.split(',').map((s) => s.trim()).filter(Boolean);
+const symbols = list(SYMBOLS);
+// يمكن مراقبة أكثر من إطار، مثل INTERVAL=1h,4h
+const intervals = list(INTERVAL);
+const markets = symbols.flatMap((symbol) => intervals.map((interval) => ({ symbol, interval })));
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // التداول الآلي اختياري: يعمل فقط إذا عُرّفت بيانات MetaApi
@@ -75,18 +79,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function scan({ force = false } = {}) {
   const found = [];
   const results = [];
-  for (const symbol of symbols) {
+  for (const { symbol, interval } of markets) {
     try {
-      const candles = await fetchCandles(symbol, INTERVAL, TWELVE_DATA_API_KEY);
-      results.push(...tracker.update(symbol, INTERVAL, candles));
+      const candles = await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY);
+      results.push(...tracker.update(symbol, interval, candles));
       const signal = strategy.analyze(candles);
       if (signal) {
-        const isNew = !tracker.has(symbol, INTERVAL, signal);
-        if (isNew) tracker.add(symbol, INTERVAL, signal);
-        if (force || isNew) found.push({ symbol, signal, text: formatSignal(symbol, INTERVAL, signal) });
+        const isNew = !tracker.has(symbol, interval, signal);
+        if (isNew) tracker.add(symbol, interval, signal);
+        if (force || isNew) found.push({ symbol, signal, text: formatSignal(symbol, interval, signal) });
       }
     } catch (err) {
-      console.error(`فشل تحليل ${symbol}:`, err.message);
+      console.error(`فشل تحليل ${symbol} ${interval}:`, err.message);
     }
     await sleep(8000);
   }
@@ -114,7 +118,7 @@ bot.onText(/^\/start/, (msg) => {
     msg.chat.id,
     [
       '👋 أهلاً! أنا بوت إشارات الذهب والفوركس.',
-      `أراقب: ${symbols.join(', ')} على إطار ${INTERVAL}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
+      `أراقب: ${symbols.join(', ')} على إطار ${intervals.join(' و ')}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
       `الاستراتيجية: ${strategy.label}`,
       '',
       'الأوامر:',
@@ -132,16 +136,17 @@ bot.onText(/^\/start/, (msg) => {
 bot.onText(/^\/status/, async (msg) => {
   await bot.sendMessage(msg.chat.id, '⏳ جاري جلب البيانات...');
   const lines = [];
-  for (const symbol of symbols) {
+  for (const { symbol, interval } of markets) {
+    const label = intervals.length > 1 ? `${symbol} ${interval}` : symbol;
     try {
-      const s = snapshot(await fetchCandles(symbol, INTERVAL, TWELVE_DATA_API_KEY));
-      lines.push(s ? formatSnapshot(symbol, s) : `• ${symbol}: بيانات غير كافية`);
+      const s = snapshot(await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY));
+      lines.push(s ? formatSnapshot(label, s) : `• ${label}: بيانات غير كافية`);
     } catch (err) {
-      lines.push(`• ${symbol}: خطأ (${err.message})`);
+      lines.push(`• ${label}: خطأ (${err.message})`);
     }
     await sleep(8000);
   }
-  bot.sendMessage(msg.chat.id, `📈 حالة السوق (${INTERVAL})\n\n${lines.join('\n')}`);
+  bot.sendMessage(msg.chat.id, `📈 حالة السوق (${intervals.join(' و ')})\n\n${lines.join('\n')}`);
 });
 
 bot.onText(/^\/signal/, async (msg) => {

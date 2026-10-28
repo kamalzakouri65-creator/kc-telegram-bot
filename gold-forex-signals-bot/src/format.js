@@ -37,7 +37,7 @@ const fmtR = (r) => `${r > 0 ? '+' : ''}${r.toFixed(2)}R`;
 // رسالة عند وصول إشارة سابقة للهدف 1 أو 2 أو الوقف
 function formatTradeEvent({ type, trade }) {
   const d = decimals(trade.symbol);
-  const head = `${trade.symbol} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
+  const head = `${trade.symbol} ${trade.interval} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
   if (type === 'tp1') {
     return `🎯 ${head}\nتحقق الهدف 1: ${trade.halves[0].target.toFixed(d)}\nنصف الصفقة أُغلق على ${fmtR(trade.halves[0].r)}، والنصف الآخر مستمر نحو الهدف 2.`;
   }
@@ -59,14 +59,14 @@ function formatResults(s) {
       `المجموع: ${fmtR(s.totalR)}`,
       '',
       'آخر الإشارات:',
-      ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)
+      ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)
     );
   }
   if (s.open.length) {
     lines.push('', `⏳ مفتوحة (${s.open.length}):`);
     for (const t of s.open) {
       const tp1 = t.halves[0].r !== null ? ' — الهدف 1 تحقق' : '';
-      lines.push(`• ${t.symbol} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
+      lines.push(`• ${t.symbol} ${t.interval} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
     }
   }
   lines.push('', 'R = المبلغ الذي تخاطر به في الصفقة. النتائج بدون السبريد.');
