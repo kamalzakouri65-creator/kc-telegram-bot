@@ -1,0 +1,16 @@
+{
+  "name": "kc-crypto-signal-hub",
+  "version": "1.0.0",
+  "description": "KC Crypto Signal Hub V1 — إشارات شراء فقط (Spot) لـ BTC/USDT و ETH/USDT، بدون أي تنفيذ صفقات",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "backtest": "node src/main.js backtest",
+    "monitor": "node src/main.js monitor"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
