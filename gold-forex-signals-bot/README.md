@@ -62,7 +62,7 @@ npm start
 
 ## 📊 الاختبار التاريخي (Backtest)
 
-يجرّب الاستراتيجيتين على آخر 5000 شمعة ويقارن النتائج:
+يجرّب الاستراتيجيات (ema-macd و order-block و pullback) على آخر 5000 شمعة ويقارن النتائج:
 
 ```bash
 npm run backtest -- XAU/USD 1h 0.35

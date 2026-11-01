@@ -82,10 +82,11 @@ if (require.main === module) {
   const { fetchCandles } = require('./market');
   const { analyze } = require('./strategy');
   const { analyzeOrderBlock } = require('./orderblock');
+  const { analyzePullback } = require('./pullback');
 
   const [symbol = 'XAU/USD', interval = (process.env.INTERVAL || '1h').split(',')[0], spreadArg = '0'] = process.argv.slice(2);
   const spread = Number(spreadArg);
-  const strategies = { 'ema-macd': analyze, 'order-block': analyzeOrderBlock };
+  const strategies = { 'ema-macd': analyze, 'order-block': analyzeOrderBlock, pullback: analyzePullback };
 
   (async () => {
     const candles = await fetchCandles(symbol, interval, process.env.TWELVE_DATA_API_KEY, 5000);
