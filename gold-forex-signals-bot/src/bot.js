@@ -1,10 +1,10 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { fetchCandles } = require('./market');
-const { analyze, snapshot } = require('./strategy');
-const { analyzeOrderBlock } = require('./orderblock');
+const { snapshot } = require('./strategy');
+const { STRATEGIES } = require('./strategies');
 const path = require('path');
-const { formatSignal, formatSnapshot, formatTradeEvent, formatResults } = require('./format');
+const { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote } = require('./format');
 const { createTracker } = require('./tracker');
 const { createOutbox } = require('./outbox');
 const { createTrader } = require('./trader');
@@ -34,17 +34,15 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !TWELVE_DATA_API_KEY) {
   process.exit(1);
 }
 
-const strategies = {
-  'ema-macd': { analyze, label: 'EMA + MACD + RSI' },
-  'order-block': { analyze: analyzeOrderBlock, label: 'Order Block' },
-};
-const strategy = strategies[STRATEGY];
-if (!strategy) {
-  console.error(`خطأ: STRATEGY يجب أن تكون واحدة من: ${Object.keys(strategies).join(', ')}`);
+const list = (text) => text.split(',').map((s) => s.trim()).filter(Boolean);
+
+// يمكن تشغيل أكثر من استراتيجية معاً، مثل STRATEGY=ema-macd,pullback
+const strategyKeys = list(STRATEGY);
+const unknown = strategyKeys.filter((key) => !STRATEGIES[key]);
+if (strategyKeys.length === 0 || unknown.length) {
+  console.error(`خطأ: STRATEGY يجب أن تكون من: ${Object.keys(STRATEGIES).join(', ')}`);
   process.exit(1);
 }
-
-const list = (text) => text.split(',').map((s) => s.trim()).filter(Boolean);
 const symbols = list(SYMBOLS);
 // يمكن مراقبة أكثر من إطار، مثل INTERVAL=1h,4h
 const intervals = list(INTERVAL);
@@ -84,11 +82,17 @@ async function scan({ force = false } = {}) {
     try {
       const candles = await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY);
       results.push(...tracker.update(symbol, interval, candles));
-      const signal = strategy.analyze(candles);
-      if (signal) {
-        const isNew = !tracker.has(symbol, interval, signal);
-        if (isNew) tracker.add(symbol, interval, signal);
-        if (force || isNew) found.push({ symbol, signal, text: formatSignal(symbol, interval, signal) });
+      for (const key of strategyKeys) {
+        const signal = STRATEGIES[key].analyze(candles);
+        if (!signal) continue;
+        const isNew = !tracker.has(symbol, interval, signal, key);
+        // صفقة مفتوحة أخرى بنفس الاتجاه (من استراتيجية أو إطار آخر) تعني مضاعفة المخاطرة إن دخلت الاثنتين
+        const same = isNew ? tracker.openSameSide(symbol, signal.side) : [];
+        if (isNew) tracker.add(symbol, interval, signal, key);
+        if (!force && !isNew) continue;
+        let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 ? key : undefined);
+        if (same.length) text += `\n\n${formatOverlapNote(same[0])}`;
+        found.push({ symbol, signal, text });
       }
     } catch (err) {
       console.error(`فشل تحليل ${symbol} ${interval}:`, err.message);
@@ -124,7 +128,7 @@ bot.onText(/^\/start/, (msg) => {
     [
       '👋 أهلاً! أنا بوت إشارات الذهب والفوركس.',
       `أراقب: ${symbols.join(', ')} على إطار ${intervals.join(' و ')}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
-      `الاستراتيجية: ${strategy.label}`,
+      `الاستراتيجية: ${strategyKeys.map((key) => STRATEGIES[key].label).join(' و ')}`,
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',

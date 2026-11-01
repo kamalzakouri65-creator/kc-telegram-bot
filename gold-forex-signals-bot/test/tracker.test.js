@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createTracker } = require('../src/tracker');
-const { formatTradeEvent, formatResults } = require('../src/format');
+const { formatTradeEvent, formatResults, formatOverlapNote } = require('../src/format');
 
 // شراء من 100، وقف 99 (مخاطرة 1)، الهدف 1 = 101.5 والهدف 2 = 103
 const signal = { side: 'BUY', time: '2026-10-27 10:00:00', entry: 100, stopLoss: 99, takeProfit1: 101.5, takeProfit2: 103 };
@@ -57,4 +57,45 @@ test('الإشارات تبقى محفوظة بعد إعادة تشغيل الب
   assert.strictEqual(reloaded.summary().open.length, 1);
   // رمز أو إطار مختلف لا يتأثر
   assert.deepStrictEqual(reloaded.update('EUR/USD', '1h', [bar('2026-10-27 11:00:00', 0, 1000)]), []);
+});
+
+test('كل استراتيجية تُتابع وحدها، والإشارات القديمة تُحسب على EMA + MACD', () => {
+  const { file } = tempTracker();
+  // إشارة رابحة محفوظة بالصيغة القديمة، بدون حقل strategy
+  const legacy = {
+    id: 'XAU/USD|1h|BUY@2026-10-27 10:00:00',
+    symbol: 'XAU/USD',
+    interval: '1h',
+    side: 'BUY',
+    time: signal.time,
+    entry: 100,
+    stopLoss: 99,
+    halves: [{ target: 101.5, r: 1.5 }, { target: 103, r: 3 }],
+    checkedUntil: signal.time,
+    closed: true,
+    r: 2.25,
+  };
+  fs.writeFileSync(file, JSON.stringify([legacy]));
+  const t = createTracker(file);
+  assert.ok(t.has('XAU/USD', '1h', signal), 'الإشارة القديمة يجب أن تُعرف بدون اسم استراتيجية');
+  assert.ok(t.has('XAU/USD', '1h', signal, 'ema-macd'));
+  assert.ok(!t.has('XAU/USD', '1h', signal, 'pullback'), 'نفس الشمعة من استراتيجية أخرى إشارة مستقلة');
+
+  t.add('XAU/USD', '1h', signal, 'pullback');
+  assert.strictEqual(t.openSameSide('XAU/USD', 'BUY').length, 1);
+  assert.strictEqual(t.openSameSide('XAU/USD', 'SELL').length, 0);
+  t.update('XAU/USD', '1h', [bar('2026-10-27 11:00:00', 98.5, 100.5)]);
+
+  const s = t.summary();
+  assert.deepStrictEqual(Object.keys(s.byStrategy).sort(), ['ema-macd', 'pullback']);
+  assert.strictEqual(s.byStrategy.pullback.totalR, -1);
+  const text = formatResults(s);
+  assert.match(text, /حسب الاستراتيجية/);
+  assert.match(text, /Pullback: 1 مغلقة/);
+  assert.match(text, /EMA \+ MACD: 1 مغلقة/);
+});
+
+test('تنبيه الإشارة المتداخلة يذكر الإطار والاستراتيجية بسعر منسّق', () => {
+  const note = formatOverlapNote({ symbol: 'XAU/USD', interval: '4h', strategy: 'pullback', entry: 4007.691234 });
+  assert.match(note, /4h Pullback من 4007\.69\)/);
 });

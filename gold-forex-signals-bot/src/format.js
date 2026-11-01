@@ -1,14 +1,16 @@
+const { labelOf } = require('./strategies');
+
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
   if (symbol.startsWith('XAU') || symbol.endsWith('JPY')) return 2;
   return 5;
 }
 
-function formatSignal(symbol, interval, s) {
+function formatSignal(symbol, interval, s, strategy) {
   const d = decimals(symbol);
   const icon = s.side === 'BUY' ? '🟢 شراء BUY' : '🔴 بيع SELL';
   return [
-    `📊 ${symbol} — ${interval}`,
+    `📊 ${symbol} — ${interval}${strategy ? ` — ${labelOf(strategy)}` : ''}`,
     icon,
     '',
     `💰 الدخول: ${s.entry.toFixed(d)}`,
@@ -37,7 +39,7 @@ const fmtR = (r) => `${r > 0 ? '+' : ''}${r.toFixed(2)}R`;
 // رسالة عند وصول إشارة سابقة للهدف 1 أو 2 أو الوقف
 function formatTradeEvent({ type, trade }) {
   const d = decimals(trade.symbol);
-  const head = `${trade.symbol} ${trade.interval} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
+  const head = `${trade.symbol} ${trade.interval} ${labelOf(trade.strategy)} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
   if (type === 'tp1') {
     return `🎯 ${head}\nتحقق الهدف 1: ${trade.halves[0].target.toFixed(d)}\nنصف الصفقة أُغلق على ${fmtR(trade.halves[0].r)}، والنصف الآخر مستمر نحو الهدف 2.`;
   }
@@ -50,6 +52,13 @@ function formatTradeEvent({ type, trade }) {
   }\nالنتيجة: ${fmtR(trade.r)}`;
 }
 
+// تنبيه عندما تأتي إشارة بنفس اتجاه صفقة مفتوحة، حتى لا تتضاعف المخاطرة
+function formatOverlapNote(trade) {
+  return `⚠️ توجد إشارة مفتوحة بنفس الاتجاه (${trade.interval} ${labelOf(trade.strategy)} من ${trade.entry.toFixed(
+    decimals(trade.symbol)
+  )}). إن كنت داخلها، لا تفتح صفقة ثانية حتى لا تتضاعف المخاطرة.`;
+}
+
 function formatResults(s) {
   const lines = ['📒 نتائج الإشارات', ''];
   if (s.closed === 0) lines.push('لا توجد إشارات مغلقة بعد.');
@@ -57,20 +66,29 @@ function formatResults(s) {
     lines.push(
       `المغلقة: ${s.closed} | رابحة: ${s.wins} | خاسرة: ${s.losses} | نسبة الربح: ${((s.wins / s.closed) * 100).toFixed(0)}%`,
       `المجموع: ${fmtR(s.totalR)}`,
+      ...(Object.keys(s.byStrategy).length > 1
+        ? [
+            '',
+            'حسب الاستراتيجية:',
+            ...Object.entries(s.byStrategy).map(
+              ([key, t]) => `• ${labelOf(key)}: ${t.closed} مغلقة | رابحة ${t.wins} | ${fmtR(t.totalR)}`
+            ),
+          ]
+        : []),
       '',
       'آخر الإشارات:',
-      ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)
+      ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)
     );
   }
   if (s.open.length) {
     lines.push('', `⏳ مفتوحة (${s.open.length}):`);
     for (const t of s.open) {
       const tp1 = t.halves[0].r !== null ? ' — الهدف 1 تحقق' : '';
-      lines.push(`• ${t.symbol} ${t.interval} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
+      lines.push(`• ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
     }
   }
   lines.push('', 'R = المبلغ الذي تخاطر به في الصفقة. النتائج بدون السبريد.');
   return lines.join('\n');
 }
 
-module.exports = { formatSignal, formatSnapshot, formatTradeEvent, formatResults };
+module.exports = { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote };

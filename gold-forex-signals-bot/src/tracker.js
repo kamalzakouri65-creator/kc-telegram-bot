@@ -5,7 +5,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const tradeId = (symbol, interval, signal) => `${symbol}|${interval}|${signal.side}@${signal.time}`;
+const { DEFAULT_STRATEGY } = require('./strategies');
+
+// معرّف إشارات ema-macd بقي بصيغته القديمة حتى تتطابق الإشارات المحفوظة من قبل
+const tradeId = (symbol, interval, signal, strategy = DEFAULT_STRATEGY) =>
+  `${symbol}|${interval}|${signal.side}@${signal.time}` + (strategy === DEFAULT_STRATEGY ? '' : `|${strategy}`);
 
 // يطبّق الشموع الجديدة على صفقة مفتوحة ويُرجع ما حدث: tp1 أو tp2 أو sl
 function advance(trade, candles) {
@@ -50,13 +54,17 @@ function createTracker(file) {
   };
 
   return {
-    has: (symbol, interval, signal) => trades.some((t) => t.id === tradeId(symbol, interval, signal)),
+    has: (symbol, interval, signal, strategy) => trades.some((t) => t.id === tradeId(symbol, interval, signal, strategy)),
 
-    add(symbol, interval, signal) {
+    // الإشارات المفتوحة على نفس الرمز وفي نفس الاتجاه، للتنبيه من مضاعفة المخاطرة
+    openSameSide: (symbol, side) => trades.filter((t) => !t.closed && t.symbol === symbol && t.side === side),
+
+    add(symbol, interval, signal, strategy = DEFAULT_STRATEGY) {
       trades.push({
-        id: tradeId(symbol, interval, signal),
+        id: tradeId(symbol, interval, signal, strategy),
         symbol,
         interval,
+        strategy,
         side: signal.side,
         time: signal.time,
         entry: signal.entry,
@@ -84,12 +92,19 @@ function createTracker(file) {
 
     summary() {
       const closed = trades.filter((t) => t.closed);
-      const wins = closed.filter((t) => t.r > 0).length;
+      const tally = (list) => ({
+        closed: list.length,
+        wins: list.filter((t) => t.r > 0).length,
+        losses: list.filter((t) => t.r < 0).length,
+        totalR: list.reduce((s, t) => s + t.r, 0),
+      });
+      const byStrategy = {};
+      for (const key of new Set(closed.map((t) => t.strategy ?? DEFAULT_STRATEGY))) {
+        byStrategy[key] = tally(closed.filter((t) => (t.strategy ?? DEFAULT_STRATEGY) === key));
+      }
       return {
-        closed: closed.length,
-        wins,
-        losses: closed.filter((t) => t.r < 0).length,
-        totalR: closed.reduce((s, t) => s + t.r, 0),
+        ...tally(closed),
+        byStrategy,
         open: trades.filter((t) => !t.closed),
         recent: closed.slice(-10),
       };

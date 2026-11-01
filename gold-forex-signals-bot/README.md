@@ -47,7 +47,7 @@ npm start
 | `SYMBOLS` | `XAU/USD,EUR/USD,GBP/USD,USD/JPY` | الأزواج المراقبة |
 | `INTERVAL` | `1h` | إطار الشموع (`15min`, `1h`, `4h`, `1day`)، ويمكن أكثر من إطار مثل `1h,4h` |
 | `CHECK_EVERY_MINUTES` | `15` | كل كم دقيقة يفحص البوت |
-| `STRATEGY` | `ema-macd` | الاستراتيجية: `ema-macd` أو `order-block` |
+| `STRATEGY` | `ema-macd` | الاستراتيجية: `ema-macd` أو `pullback` أو `order-block`، ويمكن أكثر من واحدة مثل `ema-macd,pullback` |
 
 الخطة المجانية في Twelve Data تسمح بـ 800 طلب يومياً و 8 في الدقيقة. الإعداد الافتراضي (4 أزواج كل 15 دقيقة) يستهلك نحو 384 طلباً يومياً.
 
