@@ -27,6 +27,19 @@ test('وقف مباشر ثم وصول السعر للهدف بعده يُكتش�
   assert.strictEqual(d.directStop, true);
   assert.strictEqual(d.targetAfterStop, true);
   assert.ok(d.mfe < 0.5);
+  assert.ok(d.mfeBeforeExit < d.tpR, 'لم يصل للهدف قبل الوقف');
+  assert.ok(d.tpR > 2, `الهدف بوحدة R السعرية ${d.tpR}`);
+});
+
+test('شمعة واحدة تلمس الهدف والوقف معاً تُصنّف بوضوح، والمحرك لا يتجاهل هدفاً سابقاً', () => {
+  // شمعة M5 واحدة (أول شمعة بعد الدخول) مداها من تحت الوقف إلى فوق الهدف
+  const sc = buildScenario({ afterBars: [rel(0.9, 1, 0.8, 0.95)] });
+  Object.assign(sc.data.m5[sc.engulfIndex + 2], { high: B + 20, low: B - 5 });
+  const [d] = diagnose({ BTCUSDT: sc.data }, runBacktest({ BTCUSDT: sc.data }));
+  assert.strictEqual(d.outcome, 'stop');
+  assert.ok(d.mfe >= d.tpR && d.mfeBeforeExit < d.tpR);
+  assert.match(formatDiagnosis([d]), /لمست الهدف والوقف معاً \(احتُسبت وقفاً\): 1/);
+  assert.match(formatDiagnosis([d]), /قبل شمعة الخروج: 0/);
 });
 
 test('كفاءة الحركة: 1 في الاتجاه النظيف، وقريبة من 0 في التذبذب', () => {

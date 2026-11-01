@@ -32,6 +32,11 @@ function analyzeTrade(trade, setup, ctx) {
   // أقصى تقدم للسعر لصالح الصفقة قبل الخروج (بوحدة R). شمعة الخروج محسوبة، فالرقم قد يكون أعلى قليلاً من الحقيقة
   let mfe = 0;
   for (let k = fillIdx; k <= exitIdx; k++) mfe = Math.max(mfe, (m5[k].high - trade.entry) / riskUnit);
+  // نفس المقياس بدون شمعة الخروج: إذا وصل للهدف قبلها والنتيجة وقف، فهناك خطأ في المحرك
+  let mfeBeforeExit = 0;
+  for (let k = fillIdx; k < exitIdx; k++) mfeBeforeExit = Math.max(mfeBeforeExit, (m5[k].high - trade.entry) / riskUnit);
+  // بُعد الهدف بوحدة R السعرية (أكبر من 2 لأن الهدف يغطي الرسوم والانزلاق ليكون الربح الصافي 2R)
+  const tpR = (trade.takeProfit - trade.entry) / riskUnit;
 
   // بعد الوقف: هل وصل السعر إلى الهدف خلال 4 ساعات؟ (الوقف ضُرب ثم كمل السعر في اتجاه الصفقة)
   let targetAfterStop = false;
@@ -63,6 +68,7 @@ function analyzeTrade(trade, setup, ctx) {
   const h1 = ctx.h1.c;
   const h = lastClosedIndex(h1, trade.filledAt);
   const er = efficiency(h1, h, 24);
+  const move24 = h >= 24 ? ((h1[h].close - h1[h - 24].close) / h1[h - 24].close) * 100 : null;
   const emaSlope = h >= 24 && ctx.h1.ema[h - 24] ? ((ctx.h1.ema[h] - ctx.h1.ema[h - 24]) / ctx.h1.ema[h - 24]) * 100 : null;
 
   const hour = new Date(trade.filledAt).getUTCHours();
@@ -73,6 +79,8 @@ function analyzeTrade(trade, setup, ctx) {
     r: trade.r,
     barsHeld: exitIdx - fillIdx + 1,
     mfe,
+    mfeBeforeExit,
+    tpR,
     directStop: trade.outcome === 'stop' && mfe < 0.5,
     targetAfterStop,
     legPct,
@@ -86,7 +94,8 @@ function analyzeTrade(trade, setup, ctx) {
     hour,
     session: session(hour),
     er,
-    regime: er == null ? 'غير معروف' : er < RANGE_ER ? 'عرضي' : 'اتجاه',
+    move24,
+    regime: er == null || move24 == null ? 'غير معروف' : er < RANGE_ER ? 'عرضي' : move24 > 0 ? 'اتجاه صاعد' : 'اتجاه هابط',
     emaSlope,
   };
 }
@@ -137,6 +146,10 @@ function formatDiagnosis(rows) {
     `تقدم 0.5R إلى 1R ثم عاد للوقف: ${count((r) => r.outcome === 'stop' && r.mfe >= 0.5 && r.mfe < 1)}`,
     `تقدم 1R أو أكثر ثم عاد للوقف: ${count((r) => r.outcome === 'stop' && r.mfe >= 1)}`,
     `ضُرب الوقف ثم وصل السعر للهدف خلال 4 ساعات: ${count((r) => r.targetAfterStop)}`,
+    `بُعد الهدف: متوسط ${(rows.reduce((s, r) => s + r.tpR, 0) / (rows.length || 1)).toFixed(2)}R سعرياً (أكبر من 2R لأنه يغطي الرسوم)`,
+    `وصل نصف الطريق إلى الهدف ثم عاد للوقف: ${count((r) => r.outcome === 'stop' && r.mfe >= r.tpR / 2)}`,
+    `تحقق المحرك: وقف رغم الوصول للهدف قبل شمعة الخروج: ${count((r) => r.outcome === 'stop' && r.mfeBeforeExit >= r.tpR)} (يجب أن يكون 0)`,
+    `شمعة الخروج لمست الهدف والوقف معاً (احتُسبت وقفاً): ${count((r) => r.outcome === 'stop' && r.mfe >= r.tpR && r.mfeBeforeExit < r.tpR)}`,
     `متوسط مدة الصفقة الخاسرة: ${losses.length ? (losses.reduce((s, r) => s + r.barsHeld, 0) / losses.length * 5).toFixed(0) : 0} دقيقة`,
     `بُعد الوقف: متوسط ${(stops.reduce((s, r) => s + (r.stopAtr ?? 0), 0) / (stops.length || 1)).toFixed(2)} × ATR(M15)`,
     '',
@@ -157,10 +170,12 @@ function formatDiagnosis(rows) {
     ...table('الزوج × حالة السوق', new Map([...groupBy(rows, (r) => `${r.pair} ${r.regime}`)].sort())),
     ...table('ميل EMA200 خلال 24 ساعة', groupBy(rows, (r) => bucket(r.emaSlope, [0.2, 0.6], ['ضعيف (< 0.2%)', 'متوسط', 'قوي (> 0.6%)']))),
     '== كل الصفقات ==',
-    'الزوج | الدخول UTC | النتيجة | R | أقصى تقدم | موقع الدخول | البلوك انكسر | السوق',
+    'الزوج | الدخول UTC | النتيجة | R | أقصى تقدم / الهدف | موقع الدخول | البلوك انكسر | السوق (تغير 24 ساعة)',
     ...rows.map(
       (r) =>
-        `${r.pair} | ${r.entryTime} | ${r.outcome} | ${r.r.toFixed(2)} | ${r.mfe.toFixed(2)}R | ${r.legPct?.toFixed(0)}% | ${r.obBroken ? 'نعم' : 'لا'} | ${r.regime} (${r.er?.toFixed(2)})`
+        `${r.pair} | ${r.entryTime} | ${r.outcome} | ${r.r.toFixed(2)} | ${r.mfe.toFixed(2)}R / ${r.tpR.toFixed(2)}R | ${r.legPct?.toFixed(0)}% | ${
+          r.obBroken ? 'نعم' : 'لا'
+        } | ${r.regime} (${r.move24 >= 0 ? '+' : ''}${r.move24?.toFixed(1)}%)`
     ),
   ];
   return lines.join('\n');
