@@ -31,6 +31,7 @@ cd kc-crypto-signal-hub
 npm test                 # الاختبارات (بدون إنترنت)
 npm run fetch-data       # تحميل 12 شهراً من بيانات Binance العامة (بضع دقائق، حوالي 25MB)
 npm run backtest         # الاختبار التاريخي، والتقرير يُحفظ في logs/backtest-report.txt
+npm run diagnose         # تحليل أسباب الفشل لكل صفقة (logs/diagnosis.txt)
 ```
 
 `npm run fetch-data -- 180` يحمّل 180 يوماً فقط.

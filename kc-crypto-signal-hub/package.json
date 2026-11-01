@@ -8,6 +8,7 @@
     "test": "node --test test/*.test.js",
     "fetch-data": "node src/main.js fetch-data",
     "backtest": "node src/main.js backtest",
+    "diagnose": "node src/main.js diagnose",
     "monitor": "node src/main.js monitor"
   },
   "engines": {

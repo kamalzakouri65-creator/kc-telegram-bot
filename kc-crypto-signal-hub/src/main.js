@@ -1,6 +1,7 @@
 // نقطة الدخول:
 //   node src/main.js fetch-data [أيام]   تحميل البيانات التاريخية من Binance (بيانات عامة فقط)
 //   node src/main.js backtest            الاختبار التاريخي على البيانات المحفوظة
+//   node src/main.js diagnose            تحليل أسباب الفشل لكل صفقة
 //   node src/main.js monitor ...         المراقبة الحية — لا تعمل إلا بموافقتك الصريحة
 const fs = require('fs');
 const path = require('path');
@@ -25,9 +26,17 @@ async function fetchData(days) {
 }
 
 function backtest() {
-  const { loadCache } = require('./data/binance');
   const { runBacktest } = require('./backtest/engine');
   const { buildReport } = require('./backtest/report');
+  const data = loadAllCache();
+  const report = buildReport(runBacktest(data, config), config);
+  console.log(report);
+  fs.mkdirSync(path.join(config.paths.root, 'logs'), { recursive: true });
+  fs.writeFileSync(path.join(config.paths.root, 'logs', 'backtest-report.txt'), report);
+}
+
+function loadAllCache() {
+  const { loadCache } = require('./data/binance');
   const data = {};
   for (const pair of Object.keys(config.pairs)) {
     const [h1, m15, m5] = TFS.map((tf) => loadCache(pair, tf));
@@ -37,10 +46,19 @@ function backtest() {
     }
     data[pair] = { h1, m15, m5 };
   }
-  const report = buildReport(runBacktest(data, config), config);
-  console.log(report);
+  return data;
+}
+
+// تشخيص أسباب الفشل: نفس الاختبار التاريخي ثم تحليل كل صفقة، بدون أي تغيير في الاستراتيجية
+function diagnoseCmd() {
+  const { runBacktest } = require('./backtest/engine');
+  const { diagnose, formatDiagnosis } = require('./backtest/diagnose');
+  const data = loadAllCache();
+  const rows = diagnose(data, runBacktest(data, config), config);
+  const text = formatDiagnosis(rows);
+  console.log(text);
   fs.mkdirSync(path.join(config.paths.root, 'logs'), { recursive: true });
-  fs.writeFileSync(path.join(config.paths.root, 'logs', 'backtest-report.txt'), report);
+  fs.writeFileSync(path.join(config.paths.root, 'logs', 'diagnosis.txt'), text);
 }
 
 async function monitor(args) {
@@ -77,8 +95,9 @@ async function main() {
   const [cmd, ...args] = process.argv.slice(2);
   if (cmd === 'fetch-data') return fetchData(Number(args[0]) || config.backtest.defaultDays);
   if (cmd === 'backtest') return backtest();
+  if (cmd === 'diagnose') return diagnoseCmd();
   if (cmd === 'monitor') return monitor(args);
-  console.log('الأوامر: fetch-data [أيام] | backtest | monitor');
+  console.log('الأوامر: fetch-data [أيام] | backtest | diagnose | monitor');
 }
 
 main().catch((err) => {
