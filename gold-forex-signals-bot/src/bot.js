@@ -6,6 +6,7 @@ const { analyzeOrderBlock } = require('./orderblock');
 const path = require('path');
 const { formatSignal, formatSnapshot, formatTradeEvent, formatResults } = require('./format');
 const { createTracker } = require('./tracker');
+const { createOutbox } = require('./outbox');
 const { createTrader } = require('./trader');
 const { parseSymbolMap } = require('./risk');
 
@@ -97,8 +98,12 @@ async function scan({ force = false } = {}) {
   return { found, results };
 }
 
-const send = (chatId, text) =>
-  bot.sendMessage(chatId, text).catch((e) => console.error('فشل الإرسال:', e.message));
+// الرسائل التي لا تصل بسبب انقطاع الاتصال تُحفظ وتُعاد كل دقيقة حتى تصل
+const outbox = createOutbox(path.join(__dirname, '..', 'data', 'outbox.json'), (chatId, text) =>
+  bot.sendMessage(chatId, text)
+);
+const send = (chatId, text) => outbox.send(chatId, text);
+setInterval(() => outbox.flush(), 60 * 1000);
 
 async function scheduledScan() {
   const { found, results } = await scan();
