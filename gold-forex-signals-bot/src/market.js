@@ -1,9 +1,16 @@
 // جلب الشموع من Twelve Data (يدعم XAU/USD وأزواج الفوركس، والخطة المجانية تكفي)
+// والأسواق غير المتاحة فيها مجاناً (مثل الفضة) تُجلب من Yahoo Finance
+const { fetchYahooCandles, YAHOO_SYMBOLS } = require('./yahoo');
+
 const BASE_URL = 'https://api.twelvedata.com/time_series';
 
 // options.timezone: مثلاً 'UTC' (الافتراضي توقيت السوق عند Twelve Data)
 // options.endDate: لجلب شموع أقدم من هذا التاريخ، وعندها لا نحذف آخر شمعة لأنها مغلقة
 async function fetchCandles(symbol, interval, apiKey, outputsize = 300, options = {}) {
+  if (YAHOO_SYMBOLS[symbol]) {
+    if (options.endDate) throw new Error(`${symbol}: جلب البيانات القديمة غير مدعوم من Yahoo`);
+    return fetchYahooCandles(symbol, interval, outputsize);
+  }
   const params = { symbol, interval, outputsize, apikey: apiKey, order: 'ASC' };
   if (options.timezone) params.timezone = options.timezone;
   if (options.endDate) params.end_date = options.endDate;

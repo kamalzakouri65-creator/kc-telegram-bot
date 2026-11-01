@@ -3,6 +3,7 @@ const { labelOf } = require('./strategies');
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
   if (symbol.startsWith('XAU') || symbol.endsWith('JPY')) return 2;
+  if (symbol.startsWith('XAG')) return 3;
   return 5;
 }
 
