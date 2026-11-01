@@ -44,6 +44,7 @@ const config = {
     maxEntryChasePct: 0.15, // منطقة الدخول: حتى 0.15% فوق سعر التأكيد
     rewardRisk: 2, // الهدف بحيث يكون الربح الصافي = 2 × الخسارة الصافية (بعد الرسوم)
     breakEven: false, // نقل الوقف للدخول بعد 1R (اختياري)
+    maxRally24hPct: null, // فلتر تجريبي متوقف: لا شراء بعد صعود أكثر من هذه النسبة خلال 24 ساعة (انظر backtest/oos.js)
   },
 
   risk: {
@@ -68,6 +69,8 @@ const config = {
   paths: {
     root: ROOT,
     cache: path.join(ROOT, 'data', 'cache'),
+    // بيانات خارج العينة في مجلد منفصل حتى لا تختلط بالبيانات التي اكتُشفت منها الفرضية
+    cacheOos: path.join(ROOT, 'data', 'cache-oos'),
     journal: path.join(ROOT, 'data', 'journal.json'),
   },
 };

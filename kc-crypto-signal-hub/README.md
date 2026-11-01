@@ -32,6 +32,8 @@ npm test                 # الاختبارات (بدون إنترنت)
 npm run fetch-data       # تحميل 12 شهراً من بيانات Binance العامة (بضع دقائق، حوالي 25MB)
 npm run backtest         # الاختبار التاريخي، والتقرير يُحفظ في logs/backtest-report.txt
 npm run diagnose         # تحليل أسباب الفشل لكل صفقة (logs/diagnosis.txt)
+npm run fetch-oos        # تحميل سنتين لم تُستعملا (2023-10 إلى 2025-10) في مجلد منفصل
+npm run oos-test         # اختبار الفرضية المسجلة مسبقاً في src/backtest/oos.js، مرة واحدة
 ```
 
 `npm run fetch-data -- 180` يحمّل 180 يوماً فقط.

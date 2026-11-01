@@ -1,6 +1,7 @@
 node_modules/
 .env
 data/cache/
+data/cache-oos/
 data/journal.json
 logs/*.log
 logs/*.txt

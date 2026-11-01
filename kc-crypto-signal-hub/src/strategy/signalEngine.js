@@ -50,6 +50,11 @@ function detectSetup(ctx, m, pairKey, cfg = defaults) {
   if (h < 0 || ctx.h1.ema[h] == null) return null;
   if (!(ctx.h1.c[h].close > ctx.h1.ema[h])) return null;
   if (trendAt(ctx.h1.piv, h) !== 'bullish') return null;
+  // فلتر تجريبي (متوقف افتراضياً): لا شراء بعد صعود قوي خلال آخر 24 شمعة H1
+  if (s.maxRally24hPct != null && h >= 24) {
+    const change = ((ctx.h1.c[h].close - ctx.h1.c[h - 24].close) / ctx.h1.c[h - 24].close) * 100;
+    if (change > s.maxRally24hPct) return null;
+  }
 
   let bos = null;
   for (let k = m - 1; k >= Math.max(1, m - s.maxBarsAfterBos) && !bos; k--) bos = bullishBreakAt(c, piv, k);

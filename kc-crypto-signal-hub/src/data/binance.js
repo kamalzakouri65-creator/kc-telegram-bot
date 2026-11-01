@@ -48,19 +48,19 @@ async function fetchHistory(symbol, interval, startTime, endTime = Date.now(), {
 }
 
 // نحفظ البيانات في ملف حتى يكون الاختبار التاريخي قابلاً للتكرار بنفس النتائج
-const cacheFile = (symbol, interval) => path.join(config.paths.cache, `${symbol}-${interval}.json`);
+const cacheFile = (symbol, interval, dir = config.paths.cache) => path.join(dir, `${symbol}-${interval}.json`);
 
-function loadCache(symbol, interval) {
+function loadCache(symbol, interval, dir) {
   try {
-    return JSON.parse(fs.readFileSync(cacheFile(symbol, interval), 'utf8'));
+    return JSON.parse(fs.readFileSync(cacheFile(symbol, interval, dir), 'utf8'));
   } catch {
     return null;
   }
 }
 
-function saveCache(symbol, interval, candles) {
-  fs.mkdirSync(config.paths.cache, { recursive: true });
-  fs.writeFileSync(cacheFile(symbol, interval), JSON.stringify(candles));
+function saveCache(symbol, interval, candles, dir = config.paths.cache) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(cacheFile(symbol, interval, dir), JSON.stringify(candles));
 }
 
 module.exports = { ALLOWED_PATHS, publicGet, fetchRecent, fetchHistory, loadCache, saveCache, cacheFile };

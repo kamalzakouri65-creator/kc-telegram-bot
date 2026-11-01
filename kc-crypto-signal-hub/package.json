@@ -9,6 +9,8 @@
     "fetch-data": "node src/main.js fetch-data",
     "backtest": "node src/main.js backtest",
     "diagnose": "node src/main.js diagnose",
+    "fetch-oos": "node src/main.js fetch-oos",
+    "oos-test": "node src/main.js oos-test",
     "monitor": "node src/main.js monitor"
   },
   "engines": {
