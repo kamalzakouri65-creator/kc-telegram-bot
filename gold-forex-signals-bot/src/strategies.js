@@ -2,11 +2,13 @@
 const { analyze } = require('./strategy');
 const { analyzeOrderBlock } = require('./orderblock');
 const { analyzePullback } = require('./pullback');
+const { analyzeSmc } = require('./smc');
 
 const STRATEGIES = {
   'ema-macd': { analyze, label: 'EMA + MACD' },
   pullback: { analyze: analyzePullback, label: 'Pullback' },
   'order-block': { analyze: analyzeOrderBlock, label: 'Order Block' },
+  smc: { analyze: analyzeSmc, label: 'Smart Money' },
 };
 
 // الإشارات المحفوظة قبل دعم أكثر من استراتيجية كانت كلها من ema-macd
