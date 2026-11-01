@@ -7,7 +7,8 @@
     "start": "node src/bot.js",
     "test": "node --test test/*.test.js",
     "backtest": "node src/backtest.js",
-    "backtest-scalp": "node src/backtest-scalp.js"
+    "backtest-scalp": "node src/backtest-scalp.js",
+    "backtest-ob": "node src/obtarget.js"
   },
   "engines": {
     "node": ">=18"

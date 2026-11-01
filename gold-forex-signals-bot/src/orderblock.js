@@ -122,4 +122,4 @@ function analyzeOrderBlock(candles, options = {}) {
   return null;
 }
 
-module.exports = { analyzeOrderBlock, pivots };
+module.exports = { analyzeOrderBlock, pivots, findBlock };
