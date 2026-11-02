@@ -1,0 +1,14 @@
+{
+  "name": "kc-breakout-retest",
+  "version": "1.0.0",
+  "description": "KC Breakout + Retest V1 — اختبار تاريخي فقط، بدون أي تداول",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "backtest": "node src/main.js backtest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
