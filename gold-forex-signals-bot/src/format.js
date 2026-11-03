@@ -76,6 +76,15 @@ function formatResults(s) {
             ),
           ]
         : []),
+      ...(s.bySide
+        ? [
+            '',
+            'حسب الاتجاه:',
+            ...Object.entries(s.bySide).map(([side, t]) =>
+              t.closed ? `• ${sideLabel(side)}: ${t.closed} مغلقة | رابحة ${t.wins} | ${fmtR(t.totalR)}` : `• ${sideLabel(side)}: 0 مغلقة`
+            ),
+          ]
+        : []),
       '',
       'آخر الإشارات:',
       ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)

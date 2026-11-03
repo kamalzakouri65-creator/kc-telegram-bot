@@ -93,6 +93,9 @@ test('كل استراتيجية تُتابع وحدها، والإشارات ا�
   assert.match(text, /حسب الاستراتيجية/);
   assert.match(text, /Pullback: 1 مغلقة/);
   assert.match(text, /EMA \+ MACD: 1 مغلقة/);
+  assert.strictEqual(s.bySide.BUY.closed, 2);
+  assert.strictEqual(s.bySide.SELL.closed, 0);
+  assert.match(text, /حسب الاتجاه:\n• بيع: 0 مغلقة\n• شراء: 2 مغلقة \| رابحة 1 \| \+1\.25R/);
 });
 
 test('تنبيه الإشارة المتداخلة يذكر الإطار والاستراتيجية بسعر منسّق', () => {

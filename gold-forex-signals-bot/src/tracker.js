@@ -102,9 +102,12 @@ function createTracker(file) {
       for (const key of new Set(closed.map((t) => t.strategy ?? DEFAULT_STRATEGY))) {
         byStrategy[key] = tally(closed.filter((t) => (t.strategy ?? DEFAULT_STRATEGY) === key));
       }
+      // البيع والشراء دائماً، حتى يظهر متى لا توجد بيانات لاتجاه ما
+      const bySide = { SELL: tally(closed.filter((t) => t.side === 'SELL')), BUY: tally(closed.filter((t) => t.side === 'BUY')) };
       return {
         ...tally(closed),
         byStrategy,
+        bySide,
         open: trades.filter((t) => !t.closed),
         recent: closed.slice(-10),
       };
