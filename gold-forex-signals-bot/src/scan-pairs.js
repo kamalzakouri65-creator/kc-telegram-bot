@@ -1,10 +1,12 @@
 // فحص أزواج جديدة بنفس الاستراتيجيتين قبل إضافتها للبوت: npm run scan-pairs [-- EUR/USD GBP/JPY]
 // المؤشرات: npm run scan-pairs -- indices
+// استراتيجية FVG على الذهب والفضة: npm run scan-pairs -- fvg
 // البيانات: آخر سنتين من شموع الساعة من Yahoo (مجاناً، ولا تستهلك حصة Twelve Data)، و4 ساعات مبنية منها.
 // شروط النجاح محددة هنا قبل رؤية النتائج، ولا تُعدّل بعدها، والاستراتيجيتان بدون أي تعديل لكل زوج.
 const { backtest } = require('./backtest');
 const { analyze } = require('./strategy');
 const { analyzePullback } = require('./pullback');
+const { analyzeFvg } = require('./fvg');
 const { fetchYahooHistory, groupCandles, formatTime } = require('./yahoo');
 
 // السبريد تقديري لحساب XM (بوحدة السعر)، ويُخصم من كل صفقة بنسبته إلى المخاطرة
@@ -72,7 +74,11 @@ if (require.main === module) {
   const indices = wanted[0] === 'indices';
   const pool = [...CANDIDATES, ...INDICES];
   const list = indices ? INDICES : wanted.length ? pool.filter((c) => wanted.includes(c.symbol)) : CANDIDATES;
+  const fvg = wanted[0] === 'fvg';
   const minPasses = indices ? MIN_PASSES_PER_SYMBOL.indices : 1;
+  // FVG: نفس الشروط، على الذهب والفضة فقط (السوقان اللذان تعمل فيهما استراتيجيات الاتجاه عندنا)
+  const strategies = fvg ? { FVG: analyzeFvg } : STRATEGIES;
+  if (fvg) list.splice(0, list.length, ...CANDIDATES.filter((c) => ['XAU/USD', 'XAG/USD'].includes(c.symbol)));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   (async () => {
@@ -94,7 +100,7 @@ if (require.main === module) {
       console.log(`━━ ${c.symbol}${c.note ? ` (${c.note})` : ''} — من ${from} إلى ${to}، السبريد ${c.spread}`);
       for (const [tf, group] of Object.entries(TIMEFRAMES)) {
         const candles = groupCandles(hourly, group).map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
-        for (const [name, fn] of Object.entries(STRATEGIES)) {
+        for (const [name, fn] of Object.entries(strategies)) {
           const r = evaluate(candles, fn, c.spread);
           console.log(formatRow(c.symbol, tf, name, r));
           if (r.pass) mine.push(`${c.symbol} ${tf} ${name}`);
