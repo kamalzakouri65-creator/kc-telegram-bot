@@ -76,4 +76,16 @@ async function fetchYahooCandles(symbol, interval, outputsize = 300) {
     .map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
 }
 
-module.exports = { fetchYahooCandles, YAHOO_SYMBOLS, parseChart, groupCandles, formatTime };
+// تاريخ كامل لرمز Yahoo مباشرة (للاختبارات)، بدون حذف آخر شمعة. شموع الساعة متاحة لآخر 729 يوماً فقط
+async function fetchYahooHistory(ticker, yahooInterval, days) {
+  const now = Math.floor(Date.now() / 1000);
+  const url = new URL(BASE_URL + encodeURIComponent(ticker));
+  url.search = new URLSearchParams({ interval: yahooInterval, period1: now - days * 86400, period2: now });
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} عند جلب ${ticker} من Yahoo`);
+  const candles = parseChart(await res.json());
+  if (candles.length < 500) throw new Error(`${ticker}: بيانات قليلة (${candles.length} شمعة)`);
+  return candles;
+}
+
+module.exports = { fetchYahooCandles, fetchYahooHistory, YAHOO_SYMBOLS, parseChart, groupCandles, formatTime };
