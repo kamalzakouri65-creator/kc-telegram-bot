@@ -18,8 +18,8 @@ function apiKey() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function fetchPage(endDate, key) {
-  const { symbol, interval, timezone, twelveData } = config;
+async function fetchPage(endDate, key, symbol = config.symbol, interval = config.interval) {
+  const { timezone, twelveData } = config;
   const url = new URL(twelveData.baseUrl);
   const params = { symbol, interval, timezone, outputsize: twelveData.outputsize, apikey: key, order: 'DESC' };
   if (endDate) params.end_date = endDate;
@@ -32,15 +32,15 @@ async function fetchPage(endDate, key) {
 }
 
 // من الأحدث إلى الأقدم حتى نغطي عدد السنوات المطلوب
-async function fetchHistory({ years = config.backtest.years, onProgress, pauseMs = config.twelveData.pauseMs, now = new Date() } = {}) {
+async function fetchHistory({ years = config.backtest.years, onProgress, pauseMs = config.twelveData.pauseMs, now = new Date(), symbol, interval } = {}) {
   const key = apiKey();
   const oldest = new Date(now);
   oldest.setFullYear(oldest.getFullYear() - years);
   const stopAt = oldest.toISOString().slice(0, 10);
   const byTime = new Map();
   let endDate = null;
-  for (let page = 0; page < 10; page++) {
-    const rows = await fetchPage(endDate, key);
+  for (let page = 0; page < 20; page++) {
+    const rows = await fetchPage(endDate, key, symbol, interval);
     if (!rows.length) break;
     for (const r of rows) byTime.set(r.time, r);
     onProgress?.(byTime.size, rows.at(-1).time);

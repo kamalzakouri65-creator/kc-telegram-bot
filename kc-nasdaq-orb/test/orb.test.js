@@ -106,3 +106,11 @@ test('لا يوجد في الكود أي أمر تداول أو حساب', () =>
     for (const p of [/order_send|placeOrder|createOrder/i, /metaapi/i, /withdraw/i, /\/api\/v3\/order/i]) assert.ok(!p.test(text), `${f}: ${p}`);
   }
 });
+
+test('FVG على 5 و 15 دقيقة: الحكم يتطلب نجاح QQQ و SPY موجب', () => {
+  const { verdict } = require('../src/fvg-intraday');
+  const pass = { pass: true, reasons: [], totalR: 10 };
+  assert.strictEqual(verdict(pass, { totalR: 2 }).ok, true);
+  assert.match(verdict(pass, { totalR: -3 }).reason, /SPY غير موجب/);
+  assert.match(verdict({ pass: false, reasons: ['صفقات أقل من 30'], totalR: 5 }, { totalR: 9 }).reason, /QQQ لم يجتز/);
+});
