@@ -1,0 +1,14 @@
+{
+  "name": "kc-ict-lab",
+  "version": "1.0.0",
+  "description": "اختبار Silver Bullet و Previous Day High/Low على الذهب — اختبار تاريخي فقط، مستقل عن البوت",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "backtest": "node src/main.js backtest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
