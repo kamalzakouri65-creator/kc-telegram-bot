@@ -27,6 +27,7 @@ const {
   RISK_PERCENT = '1',
   MAX_OPEN_POSITIONS = '3',
   ALLOW_REAL_TRADING = 'false',
+  MAX_LOSS_USD = '3',
 } = process.env;
 
 if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !TWELVE_DATA_API_KEY) {
@@ -90,7 +91,7 @@ async function scan({ force = false } = {}) {
         const same = isNew ? tracker.openSameSide(symbol, signal.side) : [];
         if (isNew) tracker.add(symbol, interval, signal, key);
         if (!force && !isNew) continue;
-        let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 ? key : undefined);
+        let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 ? key : undefined, { maxLossUsd: Number(MAX_LOSS_USD) });
         if (same.length) text += `\n\n${formatOverlapNote(same[0])}`;
         found.push({ symbol, signal, text });
       }

@@ -1,4 +1,5 @@
 const { labelOf } = require('./strategies');
+const { suggestLot, timeframeLabel, mt5Code } = require('./sizing');
 
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
@@ -7,7 +8,17 @@ function decimals(symbol) {
   return 5;
 }
 
-function formatSignal(symbol, interval, s, strategy) {
+// سطر الحجم المقترح لحساب صغير (أقصى خسارة maxLossUsd عند الوقف)
+function sizingLine(symbol, s, maxLossUsd) {
+  const size = suggestLot(symbol, s.entry, s.stopLoss, maxLossUsd);
+  if (!size) return [];
+  const d = decimals(symbol);
+  if (!size.ok)
+    return [`❌ الوقف بعيد (${size.distance.toFixed(d)}): أصغر حجم 0.1 يخسر ~${size.minLoss.toFixed(2)}$ (أكثر من ${maxLossUsd}$) — تخطَّها`];
+  return [`✅ مناسبة لحسابك: الحجم ${size.lot.toFixed(1)} لوت ← خسارة ~${size.loss.toFixed(2)}$ عند الوقف`];
+}
+
+function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
   const d = decimals(symbol);
   const icon = s.side === 'BUY' ? '🟢 شراء BUY' : '🔴 بيع SELL';
   return [
@@ -18,6 +29,9 @@ function formatSignal(symbol, interval, s, strategy) {
     `🛑 وقف الخسارة: ${s.stopLoss.toFixed(d)}`,
     `🎯 الهدف 1: ${s.takeProfit1.toFixed(d)}`,
     `🎯 الهدف 2: ${s.takeProfit2.toFixed(d)}`,
+    '',
+    `⏱️ الإطار: ${timeframeLabel(interval)} — افتح الشارت على ${mt5Code(interval)}`,
+    ...sizingLine(symbol, s, maxLossUsd),
     ...(s.zone ? [`🧱 ${s.zoneLabel ?? 'Order Block'}: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),
     '',
     `RSI: ${s.rsi.toFixed(1)} | ATR: ${s.atr.toFixed(d)}`,
