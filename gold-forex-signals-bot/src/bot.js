@@ -9,6 +9,7 @@ const { createTracker } = require('./tracker');
 const { createOutbox } = require('./outbox');
 const { createTrader } = require('./trader');
 const { parseSymbolMap } = require('./risk');
+const { parseDisabled, isEnabled, describe, DEFAULT_DISABLED } = require('./setups');
 
 const {
   TELEGRAM_BOT_TOKEN,
@@ -42,6 +43,12 @@ const strategyKeys = list(STRATEGY);
 const unknown = strategyKeys.filter((key) => !STRATEGIES[key]);
 if (strategyKeys.length === 0 || unknown.length) {
   console.error(`خطأ: STRATEGY يجب أن تكون من: ${Object.keys(STRATEGIES).join(', ')}`);
+  process.exit(1);
+}
+// إعدادات موقوفة (زوج + إطار + استراتيجية). الافتراضي: الفضة 1h Pullback
+const { set: disabled, invalid: badSetups } = parseDisabled(process.env.DISABLED_SETUPS ?? DEFAULT_DISABLED);
+if (badSetups.length) {
+  console.error(`خطأ: DISABLED_SETUPS غير صحيح: ${badSetups.join(', ')} (الصيغة: XAG/USD:1h:pullback)`);
   process.exit(1);
 }
 const symbols = list(SYMBOLS);
@@ -84,6 +91,7 @@ async function scan({ force = false } = {}) {
       const candles = await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY);
       results.push(...tracker.update(symbol, interval, candles));
       for (const key of strategyKeys) {
+        if (!isEnabled(disabled, symbol, interval, key)) continue;
         const signal = STRATEGIES[key].analyze(candles);
         if (!signal) continue;
         const isNew = !tracker.has(symbol, interval, signal, key);
@@ -130,6 +138,7 @@ bot.onText(/^\/start/, (msg) => {
       '👋 أهلاً! أنا بوت إشارات الذهب والفوركس.',
       `أراقب: ${symbols.join(', ')} على إطار ${intervals.join(' و ')}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
       `الاستراتيجية: ${strategyKeys.map((key) => STRATEGIES[key].label).join(' و ')}`,
+      ...(disabled.size ? [`⏸️ موقوف: ${describe(disabled).join('، ')}`] : []),
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',
