@@ -1,6 +1,6 @@
 // فحص أزواج جديدة بنفس الاستراتيجيتين قبل إضافتها للبوت: npm run scan-pairs [-- EUR/USD GBP/JPY]
 // المؤشرات: npm run scan-pairs -- indices
-// استراتيجية FVG على الذهب والفضة: npm run scan-pairs -- fvg
+// استراتيجية FVG على الذهب والفضة: npm run scan-pairs -- fvg   وعلى سوق محدد: npm run scan-pairs -- fvg nasdaq
 // البيانات: آخر سنتين من شموع الساعة من Yahoo (مجاناً، ولا تستهلك حصة Twelve Data)، و4 ساعات مبنية منها.
 // شروط النجاح محددة هنا قبل رؤية النتائج، ولا تُعدّل بعدها، والاستراتيجيتان بدون أي تعديل لكل زوج.
 const { backtest } = require('./backtest');
@@ -78,7 +78,10 @@ if (require.main === module) {
   const minPasses = indices ? MIN_PASSES_PER_SYMBOL.indices : 1;
   // FVG: نفس الشروط، على الذهب والفضة فقط (السوقان اللذان تعمل فيهما استراتيجيات الاتجاه عندنا)
   const strategies = fvg ? { FVG: analyzeFvg } : STRATEGIES;
-  if (fvg) list.splice(0, list.length, ...CANDIDATES.filter((c) => ['XAU/USD', 'XAG/USD'].includes(c.symbol)));
+  // مع اسم بعدها (مثل fvg nasdaq) نختبر ذلك السوق فقط
+  const names = wanted.slice(1).map((w) => w.toUpperCase());
+  const fvgPool = names.length ? pool.filter((c) => names.some((n) => c.symbol.toUpperCase().includes(n))) : CANDIDATES.filter((c) => ['XAU/USD', 'XAG/USD'].includes(c.symbol));
+  if (fvg) list.splice(0, list.length, ...fvgPool);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   (async () => {
