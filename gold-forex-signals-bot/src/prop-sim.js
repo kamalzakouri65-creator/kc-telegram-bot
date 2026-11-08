@@ -118,26 +118,32 @@ function pathStats(trades, riskPct) {
   return { worstDay: Math.min(0, ...Object.values(byDay)), maxDd, total: equity };
 }
 
-module.exports = { onePerSide, maxPerSide, peakOpen, runPhase, simulate, summarize, pathStats, RULES };
+module.exports = { onePerSide, maxPerSide, peakOpen, runPhase, simulate, summarize, pathStats, buildTrades, RULES };
 
-if (require.main === module) {
+// كل صفقات الإعدادات السبعة على سنتين من Yahoo (يُستعمل أيضاً في news-sim)
+async function buildTrades() {
   const STRATS = { 'EMA + MACD': analyze, Pullback: analyzePullback };
   const MARKETS = { 'XAU/USD': { ticker: 'GC=F', spread: 0.35 }, 'XAG/USD': { ticker: 'SI=F', spread: 0.035 } };
-  (async () => {
-    const all = [];
-    let span = null;
-    for (const [symbol, m] of Object.entries(MARKETS)) {
-      const hourly = await fetchYahooHistory(m.ticker, '60m', 729);
-      span = `${formatTime(hourly[0].seconds).slice(0, 10)} → ${formatTime(hourly.at(-1).seconds).slice(0, 10)}`;
-      for (const [tf, group] of [['1h', 1], ['4h', 4]]) {
-        const candles = groupCandles(hourly, group).map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
-        for (const [s, i, name] of SETUPS) {
-          if (s !== symbol || i !== tf) continue;
-          const res = backtest(candles, STRATS[name], { spread: m.spread });
-          all.push(...res.trades.map((t) => ({ ...t, symbol, setup: `${symbol} ${tf} ${name}` })));
-        }
+  const all = [];
+  let span = null;
+  for (const [symbol, m] of Object.entries(MARKETS)) {
+    const hourly = await fetchYahooHistory(m.ticker, '60m', 729);
+    span = `${formatTime(hourly[0].seconds).slice(0, 10)} → ${formatTime(hourly.at(-1).seconds).slice(0, 10)}`;
+    for (const [tf, group] of [['1h', 1], ['4h', 4]]) {
+      const candles = groupCandles(hourly, group).map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
+      for (const [s, i, name] of SETUPS) {
+        if (s !== symbol || i !== tf) continue;
+        const res = backtest(candles, STRATS[name], { spread: m.spread });
+        all.push(...res.trades.map((t) => ({ ...t, symbol, interval: tf, setup: `${symbol} ${tf} ${name}` })));
       }
     }
+  }
+  return { all, span };
+}
+
+if (require.main === module) {
+  (async () => {
+    const { all, span } = await buildTrades();
     const months = 24;
     console.log(`اختبار Prop Firm على ${span} — ${SETUPS.length} إعدادات من البوت، بعد السبريد`);
     console.log(`القواعد: المرحلة 1 = +${RULES.phase1}%، المرحلة 2 = +${RULES.phase2}%، أقصى خسارة يومية ${RULES.dailyLoss}%، أقصى خسارة كلية ${RULES.maxLoss}%`);
