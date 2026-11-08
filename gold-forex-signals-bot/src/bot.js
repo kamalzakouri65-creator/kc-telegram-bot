@@ -10,6 +10,8 @@ const { createOutbox } = require('./outbox');
 const { createTrader } = require('./trader');
 const { parseSymbolMap } = require('./risk');
 const { parseDisabled, isEnabled, describe, DEFAULT_DISABLED } = require('./setups');
+const { cryptoMarkets, marketSignals, DEFAULT_CRYPTO } = require('./crypto');
+const { isCrypto } = require('./binance');
 
 const {
   TELEGRAM_BOT_TOKEN,
@@ -54,7 +56,10 @@ if (badSetups.length) {
 const symbols = list(SYMBOLS);
 // يمكن مراقبة أكثر من إطار، مثل INTERVAL=1h,4h
 const intervals = list(INTERVAL);
-const markets = symbols.flatMap((symbol) => intervals.map((interval) => ({ symbol, interval })));
+const forexMarkets = symbols.flatMap((symbol) => intervals.map((interval) => ({ symbol, interval, strategies: strategyKeys, longOnly: false })));
+// العملات الرقمية: EMA + MACD يومي، شراء فقط. لإيقافها: CRYPTO_SYMBOLS= في .env
+const crypto = cryptoMarkets(process.env.CRYPTO_SYMBOLS ?? DEFAULT_CRYPTO);
+const markets = [...forexMarkets, ...crypto];
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // التداول الآلي اختياري: يعمل فقط إذا عُرّفت بيانات MetaApi
@@ -86,27 +91,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function scan({ force = false } = {}) {
   const found = [];
   const results = [];
-  for (const { symbol, interval } of markets) {
+  for (const market of markets) {
+    const { symbol, interval } = market;
     try {
       const candles = await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY);
       results.push(...tracker.update(symbol, interval, candles));
-      for (const key of strategyKeys) {
-        if (!isEnabled(disabled, symbol, interval, key)) continue;
-        const signal = STRATEGIES[key].analyze(candles);
-        if (!signal) continue;
+      for (const { key, signal } of marketSignals(market, candles, (s, i, k) => isEnabled(disabled, s, i, k))) {
         const isNew = !tracker.has(symbol, interval, signal, key);
         // صفقة مفتوحة أخرى بنفس الاتجاه (من استراتيجية أو إطار آخر) تعني مضاعفة المخاطرة إن دخلت الاثنتين
         const same = isNew ? tracker.openSameSide(symbol, signal.side) : [];
         if (isNew) tracker.add(symbol, interval, signal, key);
         if (!force && !isNew) continue;
-        let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 ? key : undefined, { maxLossUsd: Number(MAX_LOSS_USD) });
+        let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 || market.longOnly ? key : undefined, { maxLossUsd: Number(MAX_LOSS_USD) });
         if (same.length) text += `\n\n${formatOverlapNote(same[0])}`;
         found.push({ symbol, signal, text });
       }
     } catch (err) {
       console.error(`فشل تحليل ${symbol} ${interval}:`, err.message);
     }
-    await sleep(8000);
+    // حد Twelve Data: 8 طلبات في الدقيقة. Binance لا يحتاج انتظاراً
+    if (!isCrypto(symbol)) await sleep(8000);
   }
   return { found, results };
 }
@@ -139,6 +143,7 @@ bot.onText(/^\/start/, (msg) => {
       `أراقب: ${symbols.join(', ')} على إطار ${intervals.join(' و ')}، كل ${CHECK_EVERY_MINUTES} دقيقة.`,
       `الاستراتيجية: ${strategyKeys.map((key) => STRATEGIES[key].label).join(' و ')}`,
       ...(disabled.size ? [`⏸️ موقوف: ${describe(disabled).join('، ')}`] : []),
+      ...(crypto.length ? [`🪙 عملات رقمية (يومي، EMA + MACD، شراء فقط، متابعة): ${crypto.map((m) => m.symbol).join(', ')}`] : []),
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',
@@ -156,16 +161,16 @@ bot.onText(/^\/status/, async (msg) => {
   await bot.sendMessage(msg.chat.id, '⏳ جاري جلب البيانات...');
   const lines = [];
   for (const { symbol, interval } of markets) {
-    const label = intervals.length > 1 ? `${symbol} ${interval}` : symbol;
+    const label = intervals.length > 1 || isCrypto(symbol) ? `${symbol} ${interval === '1day' ? 'يومي' : interval}` : symbol;
     try {
       const s = snapshot(await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY));
       lines.push(s ? formatSnapshot(label, s) : `• ${label}: بيانات غير كافية`);
     } catch (err) {
       lines.push(`• ${label}: خطأ (${err.message})`);
     }
-    await sleep(8000);
+    if (!isCrypto(symbol)) await sleep(8000);
   }
-  bot.sendMessage(msg.chat.id, `📈 حالة السوق (${intervals.join(' و ')})\n\n${lines.join('\n')}`);
+  bot.sendMessage(msg.chat.id, `📈 حالة السوق\n\n${lines.join('\n')}`);
 });
 
 bot.onText(/^\/signal/, async (msg) => {

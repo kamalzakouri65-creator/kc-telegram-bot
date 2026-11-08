@@ -3,6 +3,7 @@ const { suggestLot, timeframeLabel, mt5Code } = require('./sizing');
 
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
+  if (symbol.endsWith('/USDT')) return 2;
   if (symbol.startsWith('XAU') || symbol.endsWith('JPY')) return 2;
   if (symbol.startsWith('XAG')) return 3;
   return 5;
@@ -32,6 +33,7 @@ function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
     '',
     `⏱️ الإطار: ${timeframeLabel(interval)} — افتح الشارت على ${mt5Code(interval)}`,
     ...sizingLine(symbol, s, maxLossUsd),
+    ...(symbol.endsWith('/USDT') ? ['🪙 Binance Spot — شراء فقط، بدون رافعة. إشارة متابعة: لا تدخل بمال حقيقي بعد'] : []),
     ...(s.zone ? [`🧱 ${s.zoneLabel ?? 'Order Block'}: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),
     '',
     `RSI: ${s.rsi.toFixed(1)} | ATR: ${s.atr.toFixed(d)}`,
