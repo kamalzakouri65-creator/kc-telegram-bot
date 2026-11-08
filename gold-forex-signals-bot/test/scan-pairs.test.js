@@ -41,3 +41,9 @@ test('عدد صفقات قليل يفشل حتى لو كانت رابحة', () =
 test('كل المرشحين لهم رمز Yahoo وسبريد', () => {
   for (const c of CANDIDATES) assert.ok(c.ticker && c.spread > 0, c.symbol);
 });
+
+test('السلع: لكل رمز Yahoo وسبريد كنسبة من السعر', () => {
+  const { COMMODITIES } = require('../src/scan-pairs');
+  assert.strictEqual(COMMODITIES.length, 11);
+  for (const c of COMMODITIES) assert.ok(c.ticker && c.spreadPct > 0 && c.note, c.symbol);
+});

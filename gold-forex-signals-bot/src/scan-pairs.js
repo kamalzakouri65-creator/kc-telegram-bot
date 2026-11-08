@@ -1,5 +1,6 @@
 // فحص أزواج جديدة بنفس الاستراتيجيتين قبل إضافتها للبوت: npm run scan-pairs [-- EUR/USD GBP/JPY]
 // المؤشرات: npm run scan-pairs -- indices
+// السلع المتاحة في XM: npm run scan-pairs -- commodities
 // استراتيجية FVG على الذهب والفضة: npm run scan-pairs -- fvg   وعلى سوق محدد: npm run scan-pairs -- fvg nasdaq
 // البيانات: آخر سنتين من شموع الساعة من Yahoo (مجاناً، ولا تستهلك حصة Twelve Data)، و4 ساعات مبنية منها.
 // شروط النجاح محددة هنا قبل رؤية النتائج، ولا تُعدّل بعدها، والاستراتيجيتان بدون أي تعديل لكل زوج.
@@ -36,6 +37,26 @@ const INDICES = [
 // لذلك لا يُعتمد مؤشر إلا إذا نجح في إعدادين على الأقل من أربعة
 const MIN_PASSES_PER_SYMBOL = { indices: 2 };
 
+// السلع المتاحة في حساب XM (Spot Metals Micro و Futures). السبريد تقديري كنسبة من السعر (spreadPct)،
+// ويُعاد الاختبار بسبريد مضاعف: الإعداد يُقبل فقط إذا نجح بالسبريدين (مسجل قبل الاختبار، 2026-11-08)
+const COMMODITIES = [
+  { symbol: 'PALLADIUM', ticker: 'PA=F', spreadPct: 0.1, note: 'XPDUSDmicro' },
+  { symbol: 'COPPER', ticker: 'HG=F', spreadPct: 0.05, note: 'HGCOP' },
+  { symbol: 'NATGAS', ticker: 'NG=F', spreadPct: 0.3, note: 'NGAS' },
+  { symbol: 'BRENT', ticker: 'BZ=F', spreadPct: 0.05, note: 'BRENT' },
+  { symbol: 'COCOA', ticker: 'CC=F', spreadPct: 0.3, note: 'COCOA' },
+  { symbol: 'COFFEE', ticker: 'KC=F', spreadPct: 0.25, note: 'COFFE' },
+  { symbol: 'CORN', ticker: 'ZC=F', spreadPct: 0.25, note: 'CORN' },
+  { symbol: 'COTTON', ticker: 'CT=F', spreadPct: 0.2, note: 'COTTO' },
+  { symbol: 'SOYBEANS', ticker: 'ZS=F', spreadPct: 0.15, note: 'SBEAN' },
+  { symbol: 'SUGAR', ticker: 'SB=F', spreadPct: 0.3, note: 'SUGAR' },
+  { symbol: 'WHEAT', ticker: 'ZW=F', spreadPct: 0.25, note: 'WHEAT' },
+];
+const medianClose = (hourly) => {
+  const xs = hourly.map((c) => c.close).sort((a, b) => a - b);
+  return xs[Math.floor(xs.length / 2)];
+};
+
 const STRATEGIES = { 'EMA + MACD': analyze, Pullback: analyzePullback };
 const TIMEFRAMES = { '1h': 1, '4h': 4 };
 
@@ -67,15 +88,17 @@ function formatRow(symbol, tf, name, r) {
   ].join('\n');
 }
 
-module.exports = { evaluate, formatRow, CANDIDATES, INDICES, CRITERIA };
+module.exports = { evaluate, formatRow, CANDIDATES, INDICES, COMMODITIES, CRITERIA };
 
 if (require.main === module) {
   const wanted = process.argv.slice(2);
   const indices = wanted[0] === 'indices';
-  const pool = [...CANDIDATES, ...INDICES];
-  const list = indices ? INDICES : wanted.length ? pool.filter((c) => wanted.includes(c.symbol)) : CANDIDATES;
+  const commodities = wanted[0] === 'commodities';
+  const pool = [...CANDIDATES, ...INDICES, ...COMMODITIES];
+  const list = indices ? INDICES : commodities ? [...COMMODITIES] : wanted.length ? pool.filter((c) => wanted.includes(c.symbol)) : CANDIDATES;
   const fvg = wanted[0] === 'fvg';
-  const minPasses = indices ? MIN_PASSES_PER_SYMBOL.indices : 1;
+  // 44 تجربة في السلع: الرمز يُعتمد فقط إذا نجح في إعدادين على الأقل من 4
+  const minPasses = indices ? MIN_PASSES_PER_SYMBOL.indices : commodities ? 2 : 1;
   // FVG: نفس الشروط، على الذهب والفضة فقط (السوقان اللذان تعمل فيهما استراتيجيات الاتجاه عندنا)
   const strategies = fvg ? { FVG: analyzeFvg } : STRATEGIES;
   // مع اسم بعدها (مثل fvg nasdaq) نختبر ذلك السوق فقط
@@ -87,6 +110,7 @@ if (require.main === module) {
   (async () => {
     console.log(`الشروط: ${CRITERIA.minTrades} صفقة على الأقل، PF ≥ ${CRITERIA.minProfitFactor} بعد السبريد، وآخر ${CRITERIA.oosShare * 100}% من الفترة رابحة.`);
     if (minPasses > 1) console.log(`ولا يُعتمد الرمز إلا إذا نجح في ${minPasses} إعدادات على الأقل من 4.`);
+    if (commodities) console.log('السبريد تقديري، والإعداد يُقبل فقط إذا نجح أيضاً بسبريد مضاعف.');
     console.log('');
     const passed = [];
     for (const c of list) {
@@ -100,13 +124,20 @@ if (require.main === module) {
       const from = formatTime(hourly[0].seconds).slice(0, 10);
       const to = formatTime(hourly.at(-1).seconds).slice(0, 10);
       const mine = [];
-      console.log(`━━ ${c.symbol}${c.note ? ` (${c.note})` : ''} — من ${from} إلى ${to}، السبريد ${c.spread}`);
+      const spread = c.spreadPct ? (medianClose(hourly) * c.spreadPct) / 100 : c.spread;
+      console.log(`━━ ${c.symbol}${c.note ? ` (${c.note})` : ''} — من ${from} إلى ${to}، السبريد ${+spread.toPrecision(3)}`);
       for (const [tf, group] of Object.entries(TIMEFRAMES)) {
         const candles = groupCandles(hourly, group).map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
         for (const [name, fn] of Object.entries(strategies)) {
-          const r = evaluate(candles, fn, c.spread);
+          const r = evaluate(candles, fn, spread);
           console.log(formatRow(c.symbol, tf, name, r));
-          if (r.pass) mine.push(`${c.symbol} ${tf} ${name}`);
+          let ok = r.pass;
+          if (c.spreadPct && r.pass) {
+            const r2 = evaluate(candles, fn, spread * 2);
+            ok = r2.pass;
+            console.log(`   بسبريد مضاعف: PF ${Number.isFinite(r2.profitFactor) ? r2.profitFactor.toFixed(2) : '∞'} | ${r2.totalR >= 0 ? '+' : ''}${r2.totalR.toFixed(1)}R ${ok ? '✅' : '❌'}`);
+          }
+          if (ok) mine.push(`${c.symbol} ${tf} ${name}`);
         }
       }
       if (mine.length >= minPasses) passed.push(...mine);
