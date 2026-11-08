@@ -90,6 +90,9 @@ function createTracker(file) {
       return results;
     },
 
+    // الصفقات التي أُغلقت منذ وقت معيّن (للملخص الأسبوعي)
+    closedSince: (since) => trades.filter((t) => t.closed && (t.closedAt ?? t.checkedUntil) >= since),
+
     summary() {
       const closed = trades.filter((t) => t.closed);
       const tally = (list) => ({

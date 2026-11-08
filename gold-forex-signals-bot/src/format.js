@@ -117,4 +117,35 @@ function formatResults(s) {
   return lines.join('\n');
 }
 
-module.exports = { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote };
+const marketName = (symbol) => (symbol.startsWith('XAU') ? 'الذهب' : symbol.startsWith('XAG') ? 'الفضة' : symbol.endsWith('/USDT') ? 'العملات الرقمية' : symbol);
+
+// ملخص الأسبوع: الصفقات التي أُغلقت منذ since
+function formatWeekly(closed, open, since, all) {
+  const tally = (list) => ({ n: list.length, wins: list.filter((t) => t.r > 0).length, losses: list.filter((t) => t.r < 0).length, r: list.reduce((s, t) => s + t.r, 0) });
+  const w = tally(closed);
+  const lines = [`📅 ملخص الأسبوع (منذ ${since.slice(0, 10)})`, ''];
+  if (!w.n) lines.push('لا صفقات مغلقة هذا الأسبوع.');
+  else {
+    lines.push(`المغلقة: ${w.n} | رابحة: ${w.wins} | خاسرة: ${w.losses} | المجموع: ${fmtR(w.r)}`, '');
+    const groups = {};
+    for (const t of closed) (groups[marketName(t.symbol)] ??= []).push(t);
+    for (const [name, list] of Object.entries(groups)) {
+      const g = tally(list);
+      lines.push(`• ${name}: ${g.n} | رابحة ${g.wins} | ${fmtR(g.r)}`);
+    }
+  }
+  lines.push('', `⏳ مفتوحة الآن: ${open.length}`);
+  if (all) lines.push(`📒 منذ البداية: ${all.closed} مغلقة | ${fmtR(all.totalR)}`);
+  lines.push('', 'R = المبلغ الذي تخاطر به في الصفقة. النتائج بدون السبريد.');
+  return lines.join('\n');
+}
+
+// رسالة الصباح: البوت يعمل، ومتى كان آخر فحص
+function formatHeartbeat(lastScanAt, openCount, now = new Date()) {
+  if (!lastScanAt) return `⚠️ البوت يعمل لكن لم يكتمل أي فحص بعد | مفتوحة: ${openCount}`;
+  const minutes = Math.round((now - lastScanAt) / 60000);
+  const head = minutes <= 30 ? '✅ البوت يعمل' : `⚠️ البوت يعمل لكن آخر فحص كان قبل ${minutes} دقيقة (مشكلة إنترنت؟)`;
+  return `${head} — آخر فحص: ${lastScanAt.toISOString().slice(11, 16)} UTC | مفتوحة: ${openCount}`;
+}
+
+module.exports = { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote, formatWeekly, formatHeartbeat };

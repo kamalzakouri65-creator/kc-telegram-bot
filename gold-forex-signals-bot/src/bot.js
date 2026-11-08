@@ -4,7 +4,9 @@ const { fetchCandles } = require('./market');
 const { snapshot } = require('./strategy');
 const { STRATEGIES } = require('./strategies');
 const path = require('path');
-const { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote } = require('./format');
+const { formatSignal, formatSnapshot, formatTradeEvent, formatResults, formatOverlapNote, formatWeekly, formatHeartbeat } = require('./format');
+const { createSchedule } = require('./schedule');
+const { acquireLock, releaseLock } = require('./lock');
 const { createTracker } = require('./tracker');
 const { createOutbox } = require('./outbox');
 const { createTrader } = require('./trader');
@@ -37,6 +39,17 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !TWELVE_DATA_API_KEY) {
   console.error('خطأ: يجب تعريف TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID و TWELVE_DATA_API_KEY في ملف .env');
   process.exit(1);
 }
+
+// نسخة واحدة فقط من البوت: تشغيله مرتين يسبب أخطاء 409 في تيليغرام
+const LOCK_FILE = path.join(__dirname, '..', 'data', 'bot.pid');
+const lock = acquireLock(LOCK_FILE);
+if (!lock.ok) {
+  console.error(`⛔ البوت يعمل بالفعل (العملية ${lock.pid}) في نافذة أخرى. لا تشغّله مرة ثانية.`);
+  console.error('للتأكد: اكتب /status في تيليغرام. ولإعادة تشغيله: أوقف النسخة الأخرى بـ CTRL + c أولاً.');
+  process.exit(1);
+}
+process.on('exit', () => releaseLock(LOCK_FILE));
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => process.exit(0));
 
 const list = (text) => text.split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -132,7 +145,22 @@ async function scheduledScan() {
       await send(TELEGRAM_CHAT_ID, report);
     }
   }
-  console.log(`[${new Date().toISOString()}] فحص مكتمل، إشارات جديدة: ${found.length}`);
+  lastScanAt = new Date();
+  console.log(`[${lastScanAt.toISOString()}] فحص مكتمل، إشارات جديدة: ${found.length}`);
+}
+
+// رسالة "البوت يعمل" كل صباح، وملخص الأسبوع بعد إغلاق السوق يوم الجمعة
+let lastScanAt = null;
+const schedule = createSchedule(path.join(__dirname, '..', 'data', 'schedule.json'));
+async function scheduledMessages() {
+  for (const { name } of schedule.due()) {
+    const open = tracker.summary().open;
+    if (name === 'heartbeat') await send(TELEGRAM_CHAT_ID, formatHeartbeat(lastScanAt, open.length));
+    if (name === 'weekly') {
+      const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      await send(TELEGRAM_CHAT_ID, formatWeekly(tracker.closedSince(since), open, since, tracker.summary()));
+    }
+  }
 }
 
 bot.onText(/^\/start/, (msg) => {
@@ -207,5 +235,6 @@ bot.onText(/^\/autotrade(?:\s+(on|off))?/, (msg, match) => {
 bot.on('polling_error', (err) => console.error('خطأ في الاتصال بتيليغرام:', err.message));
 
 console.log('البوت يعمل...');
-scheduledScan();
+scheduledScan().then(scheduledMessages).catch((e) => console.error('الفحص الأول:', e.message));
 setInterval(scheduledScan, Number(CHECK_EVERY_MINUTES) * 60 * 1000);
+setInterval(() => scheduledMessages().catch((e) => console.error('رسالة مجدولة:', e.message)), 60 * 1000);
