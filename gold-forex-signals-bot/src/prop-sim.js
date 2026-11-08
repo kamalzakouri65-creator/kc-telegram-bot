@@ -23,14 +23,25 @@ const SETUPS = [
   ['XAG/USD', '4h', 'Pullback'],
 ];
 
-// صفقة واحدة فقط في نفس الاتجاه على نفس الرمز (قاعدة البوت): نتخطى الإشارة إذا كانت أخرى مفتوحة
-function onePerSide(trades) {
+// حد أقصى للصفقات المفتوحة في نفس الاتجاه على نفس الرمز (Infinity = كل الإشارات)
+function maxPerSide(trades, limit) {
   const taken = [];
   for (const t of [...trades].sort((a, b) => (a.time < b.time ? -1 : 1))) {
-    const busy = taken.some((x) => x.symbol === t.symbol && x.side === t.side && x.time <= t.time && t.time < x.closedAt);
-    if (!busy) taken.push(t);
+    const open = taken.filter((x) => x.symbol === t.symbol && x.side === t.side && x.time <= t.time && t.time < x.closedAt).length;
+    if (open < limit) taken.push(t);
   }
   return taken;
+}
+// قاعدة البوت الحالية: صفقة واحدة فقط في نفس الاتجاه على نفس الرمز
+const onePerSide = (trades) => maxPerSide(trades, 1);
+
+// أكبر عدد صفقات مفتوحة معاً (على الرمزين): لو ضربت كلها الوقف في نفس الوقت = هذا العدد × المخاطرة
+function peakOpen(trades) {
+  const events = trades.flatMap((t) => [[t.time, 1], [t.closedAt, -1]]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]));
+  let open = 0;
+  let peak = 0;
+  for (const [, d] of events) peak = Math.max(peak, (open += d));
+  return peak;
 }
 
 // مرحلة واحدة من الاختبار ابتداءً من الوقت start. الصفقات مرتبة بوقت الإغلاق، والنتائج بالنسبة المئوية من الرصيد الابتدائي
@@ -107,7 +118,7 @@ function pathStats(trades, riskPct) {
   return { worstDay: Math.min(0, ...Object.values(byDay)), maxDd, total: equity };
 }
 
-module.exports = { onePerSide, runPhase, simulate, summarize, pathStats, RULES };
+module.exports = { onePerSide, maxPerSide, peakOpen, runPhase, simulate, summarize, pathStats, RULES };
 
 if (require.main === module) {
   const STRATS = { 'EMA + MACD': analyze, Pullback: analyzePullback };
@@ -127,19 +138,29 @@ if (require.main === module) {
         }
       }
     }
-    const filtered = onePerSide(all);
     const months = 24;
     console.log(`اختبار Prop Firm على ${span} — ${SETUPS.length} إعدادات من البوت، بعد السبريد`);
     console.log(`القواعد: المرحلة 1 = +${RULES.phase1}%، المرحلة 2 = +${RULES.phase2}%، أقصى خسارة يومية ${RULES.dailyLoss}%، أقصى خسارة كلية ${RULES.maxLoss}%`);
-    console.log(`الصفقات: ${all.length} إشارة، منها ${filtered.length} بعد قاعدة صفقة واحدة في كل اتجاه (~${Math.round(filtered.length / months)} في الشهر)\n`);
-    for (const risk of [0.5, 1, 1.5]) {
-      const sum = summarize(simulate(filtered, risk).runs);
-      const p = pathStats(filtered, risk);
-      console.log(`━━ المخاطرة ${risk}% في الصفقة`);
-      console.log(`  من ${sum.total} بداية: نجح ${sum.passRate.toFixed(0)}% | فشل بالخسارة اليومية: ${sum.dailyFails} | بالخسارة الكلية: ${sum.maxFails}`);
-      if (sum.medianDays !== null) console.log(`  مدة النجاح (المرحلتان): عادة ~${sum.medianDays} يوماً، وأحياناً ${sum.slowDays}+ يوماً`);
-      console.log(`  على السنتين: ${p.total >= 0 ? '+' : ''}${p.total.toFixed(1)}% | أكبر تراجع ${p.maxDd.toFixed(1)}% | أسوأ يوم ${p.worstDay.toFixed(1)}%`);
-      console.log(`  بعد التمويل: متوسط ~${(p.total / months).toFixed(1)}% في الشهر\n`);
+    console.log(`كل الإشارات: ${all.length}\n`);
+    // الحالي (صفقة واحدة × 1%) ثم بدائل: صفقات أكثر في نفس الاتجاه بمخاطرة أصغر لكل واحدة
+    const VARIANTS = [
+      [1, 1, 'الحالي'],
+      [2, 0.5, ''],
+      [2, 0.75, ''],
+      [3, 0.5, ''],
+      [Infinity, 0.5, ''],
+      [Infinity, 0.33, ''],
+    ];
+    for (const [limit, risk, note] of VARIANTS) {
+      const trades = maxPerSide(all, limit);
+      const sum = summarize(simulate(trades, risk).runs);
+      const p = pathStats(trades, risk);
+      const peak = peakOpen(trades);
+      const label = limit === Infinity ? 'كل الإشارات' : `حتى ${limit} في نفس الاتجاه`;
+      console.log(`━━ ${label} × ${risk}%${note ? ` (${note})` : ''} — ${trades.length} صفقة (~${Math.round(trades.length / months)}/شهر)`);
+      console.log(`  نجح ${sum.passRate.toFixed(0)}% من ${sum.total} بداية | فشل يومي ${sum.dailyFails} | فشل كلي ${sum.maxFails}${sum.medianDays !== null ? ` | المدة ~${sum.medianDays} يوماً` : ''}`);
+      console.log(`  سنتان: ${p.total >= 0 ? '+' : ''}${p.total.toFixed(1)}% (~${(p.total / months).toFixed(1)}%/شهر) | تراجع ${p.maxDd.toFixed(1)}% | أسوأ يوم ${p.worstDay.toFixed(1)}%`);
+      console.log(`  أكثر صفقات مفتوحة معاً: ${peak} → لو ضربت كلها الوقف = −${(peak * risk).toFixed(1)}%\n`);
     }
     console.log('تقريب: الخسارة اليومية من الصفقات المغلقة فقط. الشركات تحسب الصفقات المفتوحة أيضاً، فالواقع أصعب قليلاً.');
   })().catch((err) => {

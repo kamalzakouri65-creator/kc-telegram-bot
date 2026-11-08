@@ -28,3 +28,14 @@ test('المحاكاة الأسبوعية والملخص وأسوأ يوم', () 
   const p = pathStats([T(1, 1), T(2, -1), T(2, -1), T(3, 2)], 1);
   assert.deepStrictEqual([p.worstDay, p.maxDd, p.total], [-2, 2, 1]);
 });
+
+test('حد الصفقات في نفس الاتجاه، وأكبر عدد مفتوح معاً', () => {
+  const { maxPerSide, peakOpen } = require('../src/prop-sim');
+  const t = (h, c, side = 'SELL') => ({ time: `2026-01-01 ${h}:00:00`, closedAt: `2026-01-01 ${c}:00:00`, symbol: 'XAG/USD', side, r: 1 });
+  const all = [t('10', '20'), t('11', '20'), t('12', '20'), t('13', '20', 'BUY')];
+  assert.strictEqual(maxPerSide(all, 1).length, 2);
+  assert.strictEqual(maxPerSide(all, 2).length, 3);
+  assert.strictEqual(maxPerSide(all, Infinity).length, 4);
+  assert.strictEqual(peakOpen(all), 4);
+  assert.strictEqual(peakOpen([t('10', '11'), t('11', '12')]), 1, 'صفقة تُغلق في نفس لحظة فتح أخرى لا تُحسب معها');
+});
