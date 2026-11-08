@@ -3,7 +3,15 @@
 const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
 
 // الرمز عندنا -> الرمز عند Yahoo (SI=F = عقود الفضة الآجلة، تتداول تقريباً 24 ساعة)
-const YAHOO_SYMBOLS = { 'XAG/USD': 'SI=F' };
+const YAHOO_SYMBOLS = { 'XAG/USD': 'SI=F', 'NASDAQ 100': '^NDX', 'S&P 500': '^GSPC' };
+
+// شمعة اليوم للمؤشرات تكتمل بعد إغلاق نيويورك (20:00 أو 21:00 UTC حسب التوقيت الصيفي)
+const US_CLOSE_DONE_UTC_MIN = 21 * 60 + 15;
+// هل آخر شمعة يومية ما زالت مفتوحة؟
+function dailyStillOpen(lastSeconds, now = new Date()) {
+  const sameDay = new Date(lastSeconds * 1000).toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+  return sameDay && now.getUTCHours() * 60 + now.getUTCMinutes() < US_CLOSE_DONE_UTC_MIN;
+}
 
 // الإطارات المدعومة: Yahoo لا يقدم 4 ساعات، فنبنيها من شموع الساعة
 const INTERVALS = {
@@ -69,9 +77,10 @@ async function fetchYahooCandles(symbol, interval, outputsize = 300) {
   if (!res.ok) throw new Error(`HTTP ${res.status} عند جلب ${symbol} من Yahoo`);
   const candles = groupCandles(parseChart(await res.json()), spec.group);
 
-  // الشمعة الأخيرة ما زالت مفتوحة، فنحذفها حتى لا تتغير الإشارة بعد إرسالها
-  return candles
-    .slice(0, -1)
+  // الشمعة الأخيرة ما زالت مفتوحة، فنحذفها حتى لا تتغير الإشارة بعد إرسالها.
+  // الشموع اليومية: نحذفها فقط إذا كانت شمعة اليوم والسوق الأمريكي لم يغلق بعد
+  const closed = spec.yahoo === '1d' && candles.length && !dailyStillOpen(candles.at(-1).seconds) ? candles : candles.slice(0, -1);
+  return closed
     .slice(-outputsize)
     .map(({ seconds, open, high, low, close }) => ({ time: formatTime(seconds), open, high, low, close }));
 }
@@ -88,4 +97,4 @@ async function fetchYahooHistory(ticker, yahooInterval, days) {
   return candles;
 }
 
-module.exports = { fetchYahooCandles, fetchYahooHistory, YAHOO_SYMBOLS, parseChart, groupCandles, formatTime };
+module.exports = { fetchYahooCandles, fetchYahooHistory, YAHOO_SYMBOLS, parseChart, groupCandles, formatTime, dailyStillOpen };

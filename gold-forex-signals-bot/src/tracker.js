@@ -13,6 +13,7 @@ const tradeId = (symbol, interval, signal, strategy = DEFAULT_STRATEGY) =>
 
 // يطبّق الشموع الجديدة على صفقة مفتوحة ويُرجع ما حدث: tp1 أو tp2 أو sl
 function advance(trade, candles) {
+  if (trade.exitRule) return advanceExitRule(trade, candles);
   const events = [];
   const dir = trade.side === 'BUY' ? 1 : -1;
   const risk = dir * (trade.entry - trade.stopLoss);
@@ -41,6 +42,33 @@ function advance(trade, candles) {
   return events;
 }
 
+// صفقات بقاعدة خروج (RSI(2) على المؤشرات): الوقف أولاً، ثم الخروج عند أول إغلاق فوق متوسط N يوم أو بعد عدد أيام.
+// فجوة افتتاح تحت الوقف تُغلق بسعر الافتتاح. النتيجة بوحدة R (المخاطرة = الدخول − الوقف).
+function advanceExitRule(trade, candles) {
+  const events = [];
+  const risk = trade.entry - trade.stopLoss;
+  const { sma: n, maxBars } = trade.exitRule;
+  for (let j = 0; j < candles.length && !trade.closed; j++) {
+    const c = candles[j];
+    if (c.time <= trade.checkedUntil) continue;
+    trade.checkedUntil = c.time;
+    trade.bars = (trade.bars ?? 0) + 1;
+    let exit = null;
+    let reason = null;
+    if (c.low <= trade.stopLoss) [exit, reason] = [Math.min(trade.stopLoss, c.open), 'stop'];
+    else if (j >= n - 1) {
+      const avg = candles.slice(j - n + 1, j + 1).reduce((s, x) => s + x.close, 0) / n;
+      if (c.close > avg) [exit, reason] = [c.close, 'sma'];
+    }
+    if (exit === null && trade.bars >= maxBars) [exit, reason] = [c.close, 'time'];
+    if (exit !== null) {
+      Object.assign(trade, { closed: true, closedAt: c.time, exit, exitReason: reason, r: (exit - trade.entry) / risk });
+      events.push({ type: reason === 'stop' ? 'sl' : 'exit', time: c.time });
+    }
+  }
+  return events;
+}
+
 function createTracker(file) {
   let trades = [];
   try {
@@ -59,7 +87,14 @@ function createTracker(file) {
     // الإشارات المفتوحة على نفس الرمز وفي نفس الاتجاه، للتنبيه من مضاعفة المخاطرة
     openSameSide: (symbol, side) => trades.filter((t) => !t.closed && t.symbol === symbol && t.side === side),
 
+    hasOpen: (symbol, interval, strategy) => trades.some((t) => !t.closed && t.symbol === symbol && t.interval === interval && t.strategy === strategy),
+
     add(symbol, interval, signal, strategy = DEFAULT_STRATEGY) {
+      if (signal.exitRule) {
+        trades.push({ id: tradeId(symbol, interval, signal, strategy), symbol, interval, strategy, side: signal.side, time: signal.time, entry: signal.entry, stopLoss: signal.stopLoss, exitRule: signal.exitRule, bars: 0, checkedUntil: signal.time, closed: false });
+        save();
+        return;
+      }
       trades.push({
         id: tradeId(symbol, interval, signal, strategy),
         symbol,

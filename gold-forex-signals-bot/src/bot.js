@@ -14,6 +14,7 @@ const { parseSymbolMap } = require('./risk');
 const { parseDisabled, isEnabled, describe, DEFAULT_DISABLED } = require('./setups');
 const { cryptoMarkets, marketSignals, DEFAULT_CRYPTO } = require('./crypto');
 const { isCrypto } = require('./binance');
+const { indexMarkets, DEFAULT_INDICES } = require('./indices');
 
 const {
   TELEGRAM_BOT_TOKEN,
@@ -72,7 +73,9 @@ const intervals = list(INTERVAL);
 const forexMarkets = symbols.flatMap((symbol) => intervals.map((interval) => ({ symbol, interval, strategies: strategyKeys, longOnly: false })));
 // العملات الرقمية: EMA + MACD يومي، شراء فقط. لإيقافها: CRYPTO_SYMBOLS= في .env
 const crypto = cryptoMarkets(process.env.CRYPTO_SYMBOLS ?? DEFAULT_CRYPTO);
-const markets = [...forexMarkets, ...crypto];
+// المؤشرات الأمريكية: RSI(2) يومي، شراء فقط. لإيقافها: INDEX_SYMBOLS= في .env
+const indices = indexMarkets(process.env.INDEX_SYMBOLS ?? DEFAULT_INDICES);
+const markets = [...forexMarkets, ...crypto, ...indices];
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // التداول الآلي اختياري: يعمل فقط إذا عُرّفت بيانات MetaApi
@@ -110,6 +113,8 @@ async function scan({ force = false } = {}) {
       const candles = await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY);
       results.push(...tracker.update(symbol, interval, candles));
       for (const { key, signal } of marketSignals(market, candles, (s, i, k) => isEnabled(disabled, s, i, k))) {
+        // صفقة واحدة مفتوحة لكل مؤشر، كما في الاختبار التاريخي
+        if (market.onePosition && tracker.hasOpen(symbol, interval, key) && !tracker.has(symbol, interval, signal, key)) continue;
         const isNew = !tracker.has(symbol, interval, signal, key);
         // صفقة مفتوحة أخرى بنفس الاتجاه (من استراتيجية أو إطار آخر) تعني مضاعفة المخاطرة إن دخلت الاثنتين
         const same = isNew ? tracker.openSameSide(symbol, signal.side) : [];
@@ -172,6 +177,7 @@ bot.onText(/^\/start/, (msg) => {
       `الاستراتيجية: ${strategyKeys.map((key) => STRATEGIES[key].label).join(' و ')}`,
       ...(disabled.size ? [`⏸️ موقوف: ${describe(disabled).join('، ')}`] : []),
       ...(crypto.length ? [`🪙 عملات رقمية (يومي، EMA + MACD، شراء فقط، متابعة): ${crypto.map((m) => m.symbol).join(', ')}`] : []),
+      ...(indices.length ? [`📈 مؤشرات أمريكية (يومي، RSI(2)، شراء فقط، متابعة): ${indices.map((m) => m.symbol).join(', ')}`] : []),
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',
@@ -189,7 +195,7 @@ bot.onText(/^\/status/, async (msg) => {
   await bot.sendMessage(msg.chat.id, '⏳ جاري جلب البيانات...');
   const lines = [];
   for (const { symbol, interval } of markets) {
-    const label = intervals.length > 1 || isCrypto(symbol) ? `${symbol} ${interval === '1day' ? 'يومي' : interval}` : symbol;
+    const label = intervals.length > 1 || interval === '1day' ? `${symbol} ${interval === '1day' ? 'يومي' : interval}` : symbol;
     try {
       const s = snapshot(await fetchCandles(symbol, interval, TWELVE_DATA_API_KEY));
       lines.push(s ? formatSnapshot(label, s) : `• ${label}: بيانات غير كافية`);

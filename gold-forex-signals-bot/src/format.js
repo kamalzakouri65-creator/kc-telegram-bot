@@ -1,9 +1,10 @@
 const { labelOf } = require('./strategies');
 const { suggestLot, timeframeLabel, mt5Code } = require('./sizing');
+const { XM_NAMES } = require('./indices');
 
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
-  if (symbol.endsWith('/USDT')) return 2;
+  if (symbol.endsWith('/USDT') || !symbol.includes('/')) return 2;
   if (symbol.startsWith('XAU') || symbol.endsWith('JPY')) return 2;
   if (symbol.startsWith('XAG')) return 3;
   return 5;
@@ -28,12 +29,14 @@ function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
     '',
     `💰 الدخول: ${s.entry.toFixed(d)}`,
     `🛑 وقف الخسارة: ${s.stopLoss.toFixed(d)}`,
-    `🎯 الهدف 1: ${s.takeProfit1.toFixed(d)}`,
-    `🎯 الهدف 2: ${s.takeProfit2.toFixed(d)}`,
+    ...(s.exitRule
+      ? [`🚪 الخروج: عند أول إغلاق يومي فوق متوسط ${s.exitRule.sma} أيام، أو بعد ${s.exitRule.maxBars} أيام. البوت يرسل لك رسالة الخروج`]
+      : [`🎯 الهدف 1: ${s.takeProfit1.toFixed(d)}`, `🎯 الهدف 2: ${s.takeProfit2.toFixed(d)}`]),
     '',
     `⏱️ الإطار: ${timeframeLabel(interval)} — افتح الشارت على ${mt5Code(interval)}`,
     ...sizingLine(symbol, s, maxLossUsd),
     ...(symbol.endsWith('/USDT') ? ['🪙 Binance Spot — شراء فقط، بدون رافعة. إشارة متابعة: لا تدخل بمال حقيقي بعد'] : []),
+    ...(XM_NAMES[symbol] ? [`📈 XM: ${XM_NAMES[symbol]} — شراء فقط. إشارة متابعة: لا تدخل بمال حقيقي بعد`] : []),
     ...(s.zone ? [`🧱 ${s.zoneLabel ?? 'Order Block'}: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),
     '',
     `RSI: ${s.rsi.toFixed(1)} | ATR: ${s.atr.toFixed(d)}`,
@@ -57,6 +60,11 @@ const fmtR = (r) => `${r > 0 ? '+' : ''}${r.toFixed(2)}R`;
 function formatTradeEvent({ type, trade }) {
   const d = decimals(trade.symbol);
   const head = `${trade.symbol} ${trade.interval} ${labelOf(trade.strategy)} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
+  if (type === 'exit') {
+    const why = trade.exitReason === 'time' ? `مرت ${trade.exitRule.maxBars} أيام` : `أُغلق السعر فوق متوسط ${trade.exitRule.sma} أيام`;
+    return `🔔 ${head}\nاخرج الآن: ${why}. الخروج عند ${trade.exit.toFixed(d)}\nالنتيجة: ${fmtR(trade.r)} ${trade.r > 0 ? '✅' : '❌'}`;
+  }
+  if (trade.exitRule) return `❌ ${head}\nضرب وقف الخسارة، الخروج عند ${trade.exit.toFixed(d)}\nالنتيجة: ${fmtR(trade.r)}`;
   if (type === 'tp1') {
     return `🎯 ${head}\nتحقق الهدف 1: ${trade.halves[0].target.toFixed(d)}\nنصف الصفقة أُغلق على ${fmtR(trade.halves[0].r)}، والنصف الآخر مستمر نحو الهدف 2.`;
   }
@@ -109,7 +117,7 @@ function formatResults(s) {
   if (s.open.length) {
     lines.push('', `⏳ مفتوحة (${s.open.length}):`);
     for (const t of s.open) {
-      const tp1 = t.halves[0].r !== null ? ' — الهدف 1 تحقق' : '';
+      const tp1 = t.halves?.[0]?.r != null ? ' — الهدف 1 تحقق' : '';
       lines.push(`• ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
     }
   }
