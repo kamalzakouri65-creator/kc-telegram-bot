@@ -1,0 +1,15 @@
+{
+  "name": "kc-nasdaq-daily",
+  "version": "1.0.0",
+  "description": "Nasdaq و S&P 500 على الإطار اليومي، شراء فقط — اختبار تاريخي فقط",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "backtest": "node src/main.js backtest",
+    "validate": "node src/main.js validate"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
