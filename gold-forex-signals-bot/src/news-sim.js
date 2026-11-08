@@ -64,12 +64,20 @@ const addHours = (time, h) => {
   t.setUTCHours(t.getUTCHours() + h);
   return t.toISOString().slice(0, 19).replace('T', ' ');
 };
-// الصفقة مفتوحة من إغلاق شمعة الإشارة حتى نهاية الشمعة التي أُغلقت فيها
-function exposedTo(trade, evs) {
+// تصنيف عادل لا يعتمد على نتيجة الصفقة: هل يقع خبر خلال الـ 24 ساعة بعد الدخول؟
+// (التصنيف بـ "مفتوحة وقت الخبر" منحاز: الصفقات الرابحة تبقى مفتوحة أطول، فتلتقي بالأخبار أكثر)
+function newsAhead(trade, evs, windowHours = 24) {
   const h = HOURS[trade.interval] ?? 1;
   const from = addHours(trade.time, h);
-  const to = addHours(trade.closedAt, h);
+  const to = addHours(trade.time, h + windowHours);
   return evs.filter((e) => e.at >= from && e.at < to).map((e) => e.type);
+}
+// دخول خلال الـ 12 ساعة بعد الخبر (حركة ما بعد الخبر)
+function newsBehind(trade, evs, windowHours = 12) {
+  const h = HOURS[trade.interval] ?? 1;
+  const entry = addHours(trade.time, h);
+  const from = addHours(trade.time, h - windowHours);
+  return evs.filter((e) => e.at >= from && e.at < entry).map((e) => e.type);
 }
 
 function stats(trades) {
@@ -87,7 +95,7 @@ function decide(news, rest) {
   return { warn: false, reason: `الفرق ${gap >= 0 ? '−' : '+'}${Math.abs(gap).toFixed(2)}R فقط: الأخبار لا تضر إشاراتنا بشكل واضح، لا نغيّر شيئاً` };
 }
 
-module.exports = { nfpDates, nyToUtc, usDst, events, exposedTo, stats, decide, FOMC };
+module.exports = { nfpDates, nyToUtc, usDst, events, newsAhead, newsBehind, stats, decide, FOMC };
 
 if (require.main === module) {
   const line = (label, s) => `${label}: ${s.n} صفقة | ربح ${s.winRate.toFixed(0)}% | خسارة كاملة ${s.fullLoss.toFixed(0)}% | متوسط ${s.avg >= 0 ? '+' : ''}${s.avg.toFixed(2)}R | المجموع ${s.total >= 0 ? '+' : ''}${s.total.toFixed(1)}R`;
@@ -97,16 +105,19 @@ if (require.main === module) {
     console.log(`الأخبار وإشاراتنا — ${span}، الإعدادات السبعة، بعد السبريد`);
     console.log(`الأخبار: ${evs.filter((e) => e.type === 'NFP').length} NFP و ${evs.filter((e) => e.type === 'FOMC').length} قرار فيدرالي\n`);
     for (const [title, trades] of [['كل الإشارات', all], ['صفقة واحدة في كل اتجاه', maxPerSide(all, 1)]]) {
-      const tagged = trades.map((t) => ({ ...t, news: exposedTo(t, evs) }));
-      const news = tagged.filter((t) => t.news.length);
-      const rest = tagged.filter((t) => !t.news.length);
+      const ahead = trades.filter((t) => newsAhead(t, evs).length);
+      const behind = trades.filter((t) => newsBehind(t, evs).length);
+      const rest = trades.filter((t) => !newsAhead(t, evs).length && !newsBehind(t, evs).length);
       console.log(`━━ ${title}`);
-      console.log(line('  وقت الأخبار', stats(news)));
-      console.log(line('    منها NFP', stats(news.filter((t) => t.news.includes('NFP')))));
-      console.log(line('    منها الفيدرالي', stats(news.filter((t) => t.news.includes('FOMC')))));
-      console.log(line('  بدون أخبار', stats(rest)));
-      const d = decide(stats(news), stats(rest));
-      console.log(`  ${d.warn ? '⚠️' : '✅'} ${d.reason}\n`);
+      console.log(line('  خبر خلال 24 ساعة بعد الدخول', stats(ahead)));
+      console.log(line('    منها NFP', stats(ahead.filter((t) => newsAhead(t, evs).includes('NFP')))));
+      console.log(line('    منها الفيدرالي', stats(ahead.filter((t) => newsAhead(t, evs).includes('FOMC')))));
+      console.log(line('  دخول خلال 12 ساعة بعد خبر', stats(behind)));
+      console.log(line('  بعيداً عن الأخبار', stats(rest)));
+      const d = decide(stats(ahead), stats(rest));
+      console.log(`  ${d.warn ? '⚠️' : '✅'} قبل الأخبار: ${d.reason}`);
+      const d2 = decide(stats(behind), stats(rest));
+      console.log(`  ${d2.warn ? '⚠️' : '✅'} بعد الأخبار: ${d2.reason}\n`);
     }
     console.log('R = المبلغ الذي تخاطر به في الصفقة. "خسارة كاملة" = الصفقة ضربت الوقف قبل الهدف الأول.');
   })().catch((err) => {

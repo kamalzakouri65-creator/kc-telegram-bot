@@ -21,14 +21,16 @@ test('التوقيت الصيفي الأمريكي وتحويل نيويورك �
   assert.strictEqual(nyToUtc('2026-07-29', '14:00'), '2026-07-29 18:00:00');
 });
 
-test('الصفقة تُحسب "وقت الأخبار" فقط إذا كانت مفتوحة لحظة الخبر', () => {
+test('التصنيف بوقت الدخول فقط، لا بمدة الصفقة', () => {
+  const { newsAhead, newsBehind } = require('../src/news-sim');
   const ev = [{ type: 'NFP', at: '2026-02-06 13:30:00' }];
-  // إشارة 1h على شمعة 12:00 تُفتح 13:00 وتُغلق في شمعة 15:00
-  assert.deepStrictEqual(exposedTo({ interval: '1h', time: '2026-02-06 12:00:00', closedAt: '2026-02-06 15:00:00' }, ev), ['NFP']);
-  // إشارة على شمعة 13:00 تُفتح 14:00 بعد الخبر
-  assert.deepStrictEqual(exposedTo({ interval: '1h', time: '2026-02-06 13:00:00', closedAt: '2026-02-06 16:00:00' }, ev), []);
-  // صفقة أُغلقت قبل الخبر
-  assert.deepStrictEqual(exposedTo({ interval: '1h', time: '2026-02-06 09:00:00', closedAt: '2026-02-06 11:00:00' }, ev), []);
+  // دخول 13:00 (شمعة 12:00) والخبر بعد نصف ساعة: "قبل الخبر" مهما كانت مدة الصفقة
+  assert.deepStrictEqual(newsAhead({ interval: '1h', time: '2026-02-06 12:00:00', closedAt: '2026-02-06 12:00:00' }, ev), ['NFP']);
+  // دخول قبل الخبر بأكثر من 24 ساعة: لا، حتى لو بقيت الصفقة مفتوحة أياماً
+  assert.deepStrictEqual(newsAhead({ interval: '4h', time: '2026-02-04 08:00:00', closedAt: '2026-02-09 08:00:00' }, ev), []);
+  // دخول 16:00 بعد الخبر بساعتين ونصف: "بعد الخبر"
+  assert.deepStrictEqual(newsBehind({ interval: '1h', time: '2026-02-06 15:00:00' }, ev), ['NFP']);
+  assert.deepStrictEqual(newsBehind({ interval: '1h', time: '2026-02-07 15:00:00' }, ev), []);
 });
 
 test('قاعدة القرار مسجلة قبل التشغيل', () => {
