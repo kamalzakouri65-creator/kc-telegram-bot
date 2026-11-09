@@ -39,7 +39,7 @@ test('الفضة تُجلب من Yahoo والشمعة المفتوحة تُحذ�
   const urls = [];
   global.fetch = async (url) => {
     urls.push(String(url));
-    const body = String(url).includes('yahoo') ? chartResponse(9) : { values: [{ datetime: 'a', open: 1, high: 1, low: 1, close: 1 }, { datetime: 'b', open: 1, high: 1, low: 1, close: 1 }] };
+    const body = String(url).includes('yahoo') ? chartResponse(9) : { values: [{ datetime: '2026-10-29 10:00:00', open: 1, high: 1, low: 1, close: 1 }, { datetime: '2026-10-29 11:00:00', open: 1, high: 1, low: 1, close: 1 }] };
     return { ok: true, json: async () => body };
   };
   const silver = await fetchCandles('XAG/USD', '4h', 'key');

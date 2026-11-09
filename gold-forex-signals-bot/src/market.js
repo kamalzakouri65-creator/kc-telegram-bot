@@ -2,6 +2,7 @@
 // والأسواق غير المتاحة فيها مجاناً (مثل الفضة) تُجلب من Yahoo Finance
 const { fetchYahooCandles, YAHOO_SYMBOLS } = require('./yahoo');
 const { fetchBinanceCandles, isCrypto } = require('./binance');
+const { dropWeekendCandles } = require('./market-hours');
 
 const BASE_URL = 'https://api.twelvedata.com/time_series';
 
@@ -14,8 +15,8 @@ async function fetchCandles(symbol, interval, apiKey, outputsize = 300, options 
     if (options.endDate) throw new Error(`${symbol}: جلب البيانات القديمة غير مدعوم من Yahoo`);
     return fetchYahooCandles(symbol, interval, outputsize);
   }
-  const params = { symbol, interval, outputsize, apikey: apiKey, order: 'ASC' };
-  if (options.timezone) params.timezone = options.timezone;
+  // UTC دائماً: بدونه يرسل Twelve Data أوقاتاً بتوقيت آخر (كانت متقدمة ~11 ساعة)، فتختلف عن باقي المصادر
+  const params = { symbol, interval, outputsize, apikey: apiKey, order: 'ASC', timezone: options.timezone ?? 'UTC' };
   if (options.endDate) params.end_date = options.endDate;
   const url = new URL(BASE_URL);
   url.search = new URLSearchParams(params);
@@ -27,13 +28,15 @@ async function fetchCandles(symbol, interval, apiKey, outputsize = 300, options 
 
   // الشمعة الأخيرة ما زالت مفتوحة، فنحذفها حتى لا تتغير الإشارة بعد إرسالها
   const values = options.endDate ? data.values : data.values.slice(0, -1);
-  return values.map((v) => ({
+  const candles = values.map((v) => ({
     time: v.datetime,
     open: Number(v.open),
     high: Number(v.high),
     low: Number(v.low),
     close: Number(v.close),
   }));
+  // شموع العطلة المجمّدة تُحذف إذا كانت الأوقات بتوقيت UTC
+  return (options.timezone ?? 'UTC') === 'UTC' ? dropWeekendCandles(candles, interval) : candles;
 }
 
 module.exports = { fetchCandles };
