@@ -37,3 +37,13 @@ test('رسالة الإشارة تذكر الإطار والحجم أو التخ
   assert.doesNotMatch(formatSignal('XAU/USD', '1h', sig(4090, 4080)), /مناسبة|تخطَّها/, 'بدون حد لا يظهر سطر الحجم');
   assert.strictEqual(timeframeLabel('2h'), '2h');
 });
+
+test('وقف قريب جداً (مثل فتح السوق بعد العطلة): تخطَّها بدل حجم كبير', () => {
+  const s = suggestLot('XAU/USD', 4066.85, 4065.09, 3);
+  assert.deepStrictEqual([s.ok, s.tooClose], [false, true]);
+  const text = formatSignal('XAU/USD', '1h', sig(4066.85, 4065.09), 'pullback', { maxLossUsd: 3 });
+  assert.match(text, /❌ الوقف قريب جداً \(1\.76، الحد الأدنى 5\)/);
+  assert.doesNotMatch(text, /1\.6 لوت/);
+  assert.strictEqual(suggestLot('XAG/USD', 51.8, 51.7, 3).tooClose, true);
+  assert.strictEqual(suggestLot('XAU/USD', 4090, 4084, 3).lot, 0.5, 'وقف 6$ مقبول، والحجم الأقصى يصبح صغيراً');
+});

@@ -11,7 +11,8 @@
     "backtest-ob": "node src/obtarget.js",
     "scan-pairs": "node src/scan-pairs.js",
     "prop-sim": "node src/prop-sim.js",
-    "news-sim": "node src/news-sim.js"
+    "news-sim": "node src/news-sim.js",
+    "candles": "node src/candles.js"
   },
   "engines": {
     "node": ">=18"

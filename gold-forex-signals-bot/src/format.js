@@ -15,6 +15,8 @@ function sizingLine(symbol, s, maxLossUsd) {
   const size = suggestLot(symbol, s.entry, s.stopLoss, maxLossUsd);
   if (!size) return [];
   const d = decimals(symbol);
+  if (size.tooClose)
+    return [`❌ الوقف قريب جداً (${size.distance.toFixed(d)}، الحد الأدنى ${size.minStop}): السبريد يأكل جزءاً كبيراً من الصفقة — تخطَّها`];
   if (!size.ok)
     return [`❌ الوقف بعيد (${size.distance.toFixed(d)}): أصغر حجم 0.1 يخسر ~${size.minLoss.toFixed(2)}$ (أكثر من ${maxLossUsd}$) — تخطَّها`];
   return [`✅ مناسبة لحسابك: الحجم ${size.lot.toFixed(1)} لوت ← خسارة ~${size.loss.toFixed(2)}$ عند الوقف`];
