@@ -7,7 +7,11 @@
     "test": "node --test test/*.test.js",
     "fetch-data": "node src/main.js fetch-data",
     "backtest": "node src/main.js backtest",
-    "validate": "node src/main.js validate"
+    "validate": "node src/main.js validate",
+    "trend": "node src/trend.js",
+    "trend-validate": "node src/trend.js validate"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
