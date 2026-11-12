@@ -1,0 +1,13 @@
+{
+  "name": "kc-metals-daily",
+  "version": "1.0.0",
+  "description": "RSI(2) على الذهب والفضة يومياً، شراء فقط — اختبار تاريخي فقط",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "backtest": "node src/main.js backtest",
+    "validate": "node src/main.js validate"
+  },
+  "engines": { "node": ">=18" }
+}
