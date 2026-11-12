@@ -7,7 +7,8 @@
     "test": "node --test test/*.test.js",
     "fetch-data": "node src/main.js fetch-data",
     "backtest": "node src/main.js backtest",
-    "scalp": "node src/scalp.js"
+    "scalp": "node src/scalp.js",
+    "lows": "node src/lows.js"
   },
   "engines": {
     "node": ">=18"
