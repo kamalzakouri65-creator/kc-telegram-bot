@@ -1,16 +1,21 @@
-// npm run bounce   (أ) الارتداد من الدعم والمقاومة على الذهب والفضة، 1h و 4h، سنتان من Yahoo
+// npm run bounce   (أ) الارتداد من الدعم والمقاومة | npm run structure   (ب) هيكل السوق
+// على الذهب والفضة، 1h و 4h، سنتان من Yahoo
 // النجاح (مسجل قبل التشغيل): الإعداد يجتاز الشروط المعتادة (30 صفقة، PF ≥ 1.2، الفترة الأخيرة رابحة)،
 // والاستراتيجية تُقبل فقط إذا نجحت على الذهب والفضة معاً على نفس الإطار.
 const { evaluate, formatRow } = require('../../gold-forex-signals-bot/src/scan-pairs');
 const { fetchYahooHistory, groupCandles, formatTime } = require('../../gold-forex-signals-bot/src/yahoo');
 const { analyzeBounce } = require('./bounce');
+const { analyzeStructure } = require('./structure');
 
 // سبريد حساب XM Micro الحقيقي
 const MARKETS = [
   { symbol: 'GOLD', ticker: 'GC=F', spread: 0.57 },
   { symbol: 'SILVER', ticker: 'SI=F', spread: 0.07 },
 ];
-const STRATEGIES = { bounce: { name: 'ارتداد دعم/مقاومة', fn: analyzeBounce } };
+const STRATEGIES = {
+  bounce: { name: 'ارتداد دعم/مقاومة', fn: analyzeBounce },
+  structure: { name: 'هيكل السوق', fn: analyzeStructure },
+};
 
 (async () => {
   const key = process.argv[2];

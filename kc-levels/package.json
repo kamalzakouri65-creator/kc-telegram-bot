@@ -5,7 +5,10 @@
   "private": true,
   "scripts": {
     "test": "node --test test/*.test.js",
-    "bounce": "node src/main.js bounce"
+    "bounce": "node src/main.js bounce",
+    "structure": "node src/main.js structure"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
