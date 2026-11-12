@@ -100,9 +100,13 @@ function evaluate(trades, candles, c = CRITERIA) {
 module.exports = { simulate, evaluate, weekendClosed, group, P };
 
 if (require.main === module) {
+  // أرقام أخرى للوقف والهدف: npm run lows -- 3 6   (الوقف ثم الهدف بالدولار)
+  const [stopArg, targetArg] = process.argv.slice(2).map(Number);
+  if (stopArg > 0 && targetArg > 0) Object.assign(P, { stop: stopArg, target: targetArg });
   const fmt = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}`;
   const need = ((P.stop + P.spread) / (P.stop + P.target)) * 100;
   console.log(`شراء عند القيعان السابقة — الذهب — وقف ${P.stop}$ وهدف ${P.target}$، سبريد ${P.spread}$`);
+  console.log(`الصدفة وحدها (سوق عشوائي): ~${((P.stop / (P.stop + P.target)) * 100).toFixed(0)}% تصل للهدف.`);
   console.log(`نسبة الربح اللازمة للتعادل: ~${need.toFixed(0)}%. الشروط: ${CRITERIA.minTrades} صفقة، PF ≥ ${CRITERIA.minProfitFactor}، الفترتان رابحتان، على إطارين من 3.\n`);
   const c5 = data.load('XAU-5min');
   const c15 = data.load('XAU-15min');
