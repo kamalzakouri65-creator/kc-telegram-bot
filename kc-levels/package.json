@@ -7,7 +7,8 @@
     "test": "node --test test/*.test.js",
     "bounce": "node src/main.js bounce",
     "structure": "node src/main.js structure",
-    "breakout": "node src/main.js breakout"
+    "breakout": "node src/main.js breakout",
+    "strong": "node src/strong-main.js"
   },
   "engines": {
     "node": ">=18"
