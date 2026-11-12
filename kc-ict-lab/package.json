@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "fetch-data": "node src/main.js fetch-data",
-    "backtest": "node src/main.js backtest"
+    "backtest": "node src/main.js backtest",
+    "scalp": "node src/scalp.js"
   },
   "engines": {
     "node": ">=18"

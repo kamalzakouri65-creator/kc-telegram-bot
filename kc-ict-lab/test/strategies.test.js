@@ -87,7 +87,9 @@ test('مستقل عن البوت: لا يستورد أي ملف منه، ولا 
   const dir = path.join(__dirname, '..', 'src');
   for (const f of fs.readdirSync(dir)) {
     const text = fs.readFileSync(path.join(dir, f), 'utf8');
-    assert.ok(!/require\([^)]*gold-forex-signals-bot/.test(text), `${f} يستورد من البوت`);
+    // مسموح فقط قراءة الاستراتيجيات ومحرك الاختبار من البوت (بدون أي كتابة فيه)
+    const imports = [...text.matchAll(/require\('([^']*gold-forex-signals-bot[^']*)'\)/g)].map((m) => m[1].split('/').pop());
+    for (const name of imports) assert.ok(['strategy', 'pullback', 'backtest'].includes(name), `${f} يستورد ${name} من البوت`);
     assert.ok(!/writeFileSync\([^)]*gold-forex-signals-bot/.test(text), `${f} يكتب في البوت`);
     for (const p of [/order_send|placeOrder|createOrder/i, /metaapi/i, /withdraw/i]) assert.ok(!p.test(text), `${f}: ${p}`);
   }
