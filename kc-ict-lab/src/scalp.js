@@ -1,4 +1,4 @@
-// اختبار السكالبينغ على الذهب: npm run scalp
+// اختبار السكالبينغ على الذهب: npm run scalp   وبـ Order Block: npm run scalp -- order-block
 // يستعمل بيانات الذهب 5 و 15 دقيقة الموجودة من قبل (npm run fetch-data)، بتوقيت نيويورك.
 // استراتيجيتا البوت (EMA + MACD و Pullback) بدون تعديل، فقط في ساعات السيولة العالية:
 //   جلسة لندن 03:00–06:00 وجلسة نيويورك 08:30–11:30 بتوقيت نيويورك (أعلى حركة وأقل سبريد).
@@ -8,6 +8,7 @@
 const { backtest } = require('../../gold-forex-signals-bot/src/backtest');
 const { analyze } = require('../../gold-forex-signals-bot/src/strategy');
 const { analyzePullback } = require('../../gold-forex-signals-bot/src/pullback');
+const { analyzeOrderBlock } = require('../../gold-forex-signals-bot/src/orderblock');
 const data = require('./data');
 
 const SPREAD = 0.57;
@@ -45,13 +46,22 @@ function breakEvenSpread(candles, fn) {
   return perUnit > 0 ? g0 / perUnit : 0;
 }
 
-module.exports = { evaluate, inSession, sessionOnly, breakEvenSpread, SPREAD, CRITERIA };
+// Order Block (مسجل قبل التشغيل، 2026-11-12): استراتيجية البوت كما هي، نفس الجلسات والسبريد والشروط،
+// ويُحسب الإعداد ناجحاً فقط إذا كان سبريد التعادل ضعف السبريد الحقيقي على الأقل.
+// جربنا كثيراً من الأفكار، لذلك يُقبل Order Block فقط إذا نجح على 5 دقائق و 15 دقيقة معاً
+const OB = { strategies: { 'Order Block': analyzeOrderBlock }, minBreakEven: 2 * SPREAD, minPasses: 2 };
+
+module.exports = { evaluate, inSession, sessionOnly, breakEvenSpread, SPREAD, CRITERIA, OB };
 
 if (require.main === module) {
   const fmt = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}`;
   const pf = (r) => (Number.isFinite(r.profitFactor) ? r.profitFactor.toFixed(2) : '∞');
   console.log(`سكالبينغ الذهب — جلسة لندن ونيويورك فقط — سبريد XM ${SPREAD}$`);
   console.log(`الشروط: ${CRITERIA.minTrades} صفقة، PF ≥ ${CRITERIA.minProfitFactor}، الفترتان رابحتان، ويجب أن ينجح ${CRITERIA.minPasses} إعدادات على الأقل من 4.\n`);
+  const ob = process.argv[2] === 'order-block';
+  const strategies = ob ? OB.strategies : STRATEGIES;
+  const minPasses = ob ? OB.minPasses : CRITERIA.minPasses;
+  if (ob) console.log(`Order Block: يُقبل فقط إذا نجح على الإطارين، وسبريد التعادل ≥ ${OB.minBreakEven.toFixed(2)}$.\n`);
   let passes = 0;
   for (const tf of ['5min', '15min']) {
     const candles = data.load(`XAU-${tf}`);
@@ -60,15 +70,21 @@ if (require.main === module) {
       continue;
     }
     console.log(`━━ ${tf} — ${candles[0].time.slice(0, 10)} → ${candles.at(-1).time.slice(0, 10)}`);
-    for (const [name, fn] of Object.entries(STRATEGIES)) {
+    for (const [name, fn] of Object.entries(strategies)) {
       const r = evaluate(candles, fn);
+      const be = breakEvenSpread(candles, fn);
+      if (ob && r.pass && be < OB.minBreakEven) {
+        r.pass = false;
+        r.reasons.push(`سبريد التعادل أقل من ${OB.minBreakEven.toFixed(2)}$`);
+      }
       if (r.pass) passes++;
       console.log(`${r.pass ? '✅' : '❌'} ${tf} ${name}: ${r.count} صفقة | ربح ${(r.winRate * 100).toFixed(0)}% | PF ${pf(r)} | ${fmt(r.totalR)}R`);
-      console.log(`   الفترة الأولى ${fmt(r.first)}R | الأخيرة ${fmt(r.last)}R | تراجع ${r.maxDrawdownR.toFixed(1)}R | سبريد التعادل ${breakEvenSpread(candles, fn).toFixed(2)}$`);
+      console.log(`   الفترة الأولى ${fmt(r.first)}R | الأخيرة ${fmt(r.last)}R | تراجع ${r.maxDrawdownR.toFixed(1)}R | سبريد التعادل ${be.toFixed(2)}$`);
       if (!r.pass) console.log(`   السبب: ${r.reasons.join('، ')}`);
     }
     console.log('');
   }
-  console.log(passes >= CRITERIA.minPasses ? `✅ نجح ${passes} من 4: السكالبينغ يستحق المتابعة` : `❌ نجح ${passes} فقط من 4: لا نعتمد السكالبينغ`);
-  console.log('سبريد التعادل = أكبر سبريد تبقى عنده النتيجة رابحة. سبريدك في XM 0.57$.');
+  const total = 2 * Object.keys(strategies).length;
+  console.log(passes >= minPasses ? `✅ نجح ${passes} من ${total}: يستحق المتابعة` : `❌ نجح ${passes} فقط من ${total}: لا نعتمده`);
+  console.log(`سبريد التعادل = أكبر سبريد تبقى عنده النتيجة رابحة. سبريدك في XM ${SPREAD}$.`);
 }
