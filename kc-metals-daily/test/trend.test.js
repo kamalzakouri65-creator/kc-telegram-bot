@@ -28,3 +28,10 @@ test('الحكم: الذهب يجتاز والفضة رابحة', () => {
   assert.match(judge({ count: 20, profitFactor: 1.5, totalR: 6 }, { totalR: -1 }).reasons.join(), /الفضة غير رابحة/);
   assert.match(judge({ count: 10, profitFactor: 2, totalR: 6 }, { totalR: 1 }).reasons.join(), /أقل من 15/);
 });
+
+test('شراء فقط: إشارة البيع تُتجاهل', () => {
+  const cs = flat(20);
+  Object.assign(cs[6], { low: 84, high: 100 });
+  assert.strictEqual(runTrend(cs, sig(day(5), 'SELL'), { from: '2022-01-01', spreadPct: 0, longOnly: true }).length, 0);
+  assert.strictEqual(runTrend(cs, sig(day(5), 'SELL'), { from: '2022-01-01', spreadPct: 0 }).length, 1);
+});

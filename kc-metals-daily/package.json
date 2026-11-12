@@ -9,7 +9,8 @@
     "backtest": "node src/main.js backtest",
     "validate": "node src/main.js validate",
     "trend": "node src/trend.js",
-    "trend-validate": "node src/trend.js validate"
+    "trend-validate": "node src/trend.js validate",
+    "trend-long": "node src/trend.js long"
   },
   "engines": {
     "node": ">=18"

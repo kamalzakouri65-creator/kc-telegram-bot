@@ -2,6 +2,7 @@
 // شراء وبيع (XM يسمح بالاثنين). القواعد والشروط ثابتة قبل التشغيل (2026-11-12).
 // npm run trend   التطوير (2021 →)
 // npm run trend-validate -- --final   التأكيد 2005–2020: مرة واحدة، وفقط لاستراتيجية نجحت في التطوير
+// npm run trend-long -- --final   فرضية مسجلة 2026-11-12 بعد رؤية التطوير: EMA + MACD يومي شراء فقط، على 2005–2020 مرة واحدة
 const fs = require('fs');
 const path = require('path');
 const { config } = require('./config');
@@ -17,7 +18,7 @@ const WINDOW = 500;
 const nights = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 // نفس إدارة البوت: نصف عند الهدف 1 ونصف عند الهدف 2، الوقف ثابت، والوقف والهدف في نفس الشمعة = وقف
-function runTrend(candles, fn, { from, to = '9999', spreadPct, swapPct = SWAP_PCT_PER_NIGHT }) {
+function runTrend(candles, fn, { from, to = '9999', spreadPct, swapPct = SWAP_PCT_PER_NIGHT, longOnly = false }) {
   const trades = [];
   let open = null;
   for (let i = 0; i < candles.length; i++) {
@@ -39,7 +40,7 @@ function runTrend(candles, fn, { from, to = '9999', spreadPct, swapPct = SWAP_PC
     }
     if (c.time < from || c.time > to) continue;
     const s = fn(candles.slice(Math.max(0, i + 1 - WINDOW), i + 1));
-    if (!s) continue;
+    if (!s || (longOnly && s.side !== 'BUY')) continue;
     const dir = s.side === 'BUY' ? 1 : -1;
     const risk = dir * (s.entry - s.stopLoss);
     if (!(risk > 0)) continue;
@@ -101,7 +102,30 @@ if (require.main === module) {
   }
 
   const cmd = process.argv[2];
-  if (cmd === 'validate') {
+  if (cmd === 'long') {
+    // فرضية واحدة مسجلة قبل لمس 2005–2020: نفس الشروط، شراء فقط، EMA + MACD فقط. لا تعديل بعد هذا التشغيل
+    if (!process.argv.includes('--final')) {
+      console.log('⚠️ يُشغّل مرة واحدة فقط على بيانات 2005–2020. للتشغيل: npm run trend-long -- --final');
+    } else {
+      if (load('trend-long-done')) console.log('⚠️ شُغّل من قبل. النتيجة الأولى هي المعتمدة.\n');
+      const range = { from: config.final.from, to: config.final.to, longOnly: true };
+      const lines = [`KC Metals Daily — EMA + MACD يومي، شراء فقط — التأكيد (${range.from} → ${range.to})`, 'بيانات لم تُستعمل من قبل، تشغيل واحد، بعد سبريد XM و Swap 0.02% لكل ليلة', ''];
+      const res = {};
+      for (const m of config.markets) {
+        const trades = runTrend(load(m.ticker), STRATEGIES['EMA + MACD'], { ...range, spreadPct: m.spreadPct });
+        const r = (res[m.name] = metrics(trades));
+        lines.push(`  ${m.name}: ${r.count} صفقة | ربح ${r.winRate.toFixed(0)}% | PF ${pf(r)} | ${fmt(r.totalR)}R | تراجع ${r.maxDd.toFixed(1)}R`);
+        for (const [a, b, label] of [['2005', '2010', '2005–2010'], ['2011', '2015', '2011–2015 (هبوط الذهب)'], ['2016', '2020', '2016–2020']]) {
+          const p = metrics(trades.filter((t) => t.time.slice(0, 4) >= a && t.time.slice(0, 4) <= b));
+          lines.push(`     ${label}: ${p.count} صفقة | ${fmt(p.totalR)}R`);
+        }
+      }
+      const j = judge(res.GOLD, res.SILVER);
+      lines.push('', j.pass ? '✅ نجحت في الشروط' : `❌ فشلت — ${j.reasons.join('، ')}`, `الشروط: الذهب ${CRITERIA.minTrades} صفقة على الأقل و PF ≥ ${CRITERIA.minProfitFactor} ورابح، والفضة رابحة.`);
+      console.log(lines.join('\n'));
+      save('trend-long-done', { at: new Date().toISOString(), pass: j.pass });
+    }
+  } else if (cmd === 'validate') {
     const dev = load('trend-dev-verdicts');
     if (!process.argv.includes('--final')) console.log('⚠️ التأكيد يُشغّل مرة واحدة فقط. للتشغيل: npm run trend-validate -- --final');
     else if (!dev) console.log('شغّل التطوير أولاً: npm run trend');
