@@ -1,0 +1,11 @@
+{
+  "name": "kc-levels",
+  "version": "1.0.0",
+  "description": "استراتيجيات القمم والقيعان على الذهب والفضة — اختبار تاريخي فقط، مستقل عن البوت",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "bounce": "node src/main.js bounce"
+  },
+  "engines": { "node": ">=18" }
+}
