@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "bounce": "node src/main.js bounce",
-    "structure": "node src/main.js structure"
+    "structure": "node src/main.js structure",
+    "breakout": "node src/main.js breakout"
   },
   "engines": {
     "node": ">=18"

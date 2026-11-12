@@ -1,4 +1,4 @@
-// npm run bounce   (أ) الارتداد من الدعم والمقاومة | npm run structure   (ب) هيكل السوق
+// npm run bounce   (أ) الارتداد من الدعم والمقاومة | npm run structure   (ب) هيكل السوق | npm run breakout   (ج) الاختراق
 // على الذهب والفضة، 1h و 4h، سنتان من Yahoo
 // النجاح (مسجل قبل التشغيل): الإعداد يجتاز الشروط المعتادة (30 صفقة، PF ≥ 1.2، الفترة الأخيرة رابحة)،
 // والاستراتيجية تُقبل فقط إذا نجحت على الذهب والفضة معاً على نفس الإطار.
@@ -6,6 +6,7 @@ const { evaluate, formatRow } = require('../../gold-forex-signals-bot/src/scan-p
 const { fetchYahooHistory, groupCandles, formatTime } = require('../../gold-forex-signals-bot/src/yahoo');
 const { analyzeBounce } = require('./bounce');
 const { analyzeStructure } = require('./structure');
+const { analyzeBreakout } = require('./breakout');
 
 // سبريد حساب XM Micro الحقيقي
 const MARKETS = [
@@ -15,6 +16,7 @@ const MARKETS = [
 const STRATEGIES = {
   bounce: { name: 'ارتداد دعم/مقاومة', fn: analyzeBounce },
   structure: { name: 'هيكل السوق', fn: analyzeStructure },
+  breakout: { name: 'اختراق القمة/القاع', fn: analyzeBreakout },
 };
 
 (async () => {
