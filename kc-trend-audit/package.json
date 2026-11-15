@@ -6,7 +6,10 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "fetch-oos": "node src/main.js fetch-oos",
-    "audit": "node src/main.js audit"
+    "audit": "node src/main.js audit",
+    "forward": "node src/forward.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
