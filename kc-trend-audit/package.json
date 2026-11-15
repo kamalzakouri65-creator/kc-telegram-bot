@@ -1,0 +1,12 @@
+{
+  "name": "kc-trend-audit",
+  "version": "1.0.0",
+  "description": "تدقيق استراتيجية الترند H1/H4 على الذهب — قراءة فقط من البوت، اختبار تاريخي فقط، بدون أي تداول",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-oos": "node src/main.js fetch-oos",
+    "audit": "node src/main.js audit"
+  },
+  "engines": { "node": ">=18" }
+}
