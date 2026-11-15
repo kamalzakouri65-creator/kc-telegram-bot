@@ -1,0 +1,12 @@
+{
+  "name": "kc-gold-scalping-v1",
+  "version": "1.0.0",
+  "description": "KC GOLD SCALPING V1 — Liquidity Sweep + Market Structure + FVG — اختبار تاريخي وإشارات فقط، بدون أي تداول",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "check-data": "node src/main.js check-data"
+  },
+  "engines": { "node": ">=18" }
+}
