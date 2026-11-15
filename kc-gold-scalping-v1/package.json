@@ -6,7 +6,10 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "fetch-data": "node src/main.js fetch-data",
-    "check-data": "node src/main.js check-data"
+    "check-data": "node src/main.js check-data",
+    "backtest": "node src/main.js backtest"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

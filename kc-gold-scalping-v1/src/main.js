@@ -1,5 +1,6 @@
 // npm run fetch-data   تحميل 12 شهراً من شموع M1 للذهب (حوالي 75 طلباً، طلب كل 15 ثانية، ويمكن إعادة تشغيله ليكمل من حيث توقف)
 // npm run check-data   فحص الجودة: المدة، والفجوات، والتكرار، وشموع الإغلاق، والقفزات
+// npm run backtest     الاختبار التاريخي الكامل حسب rules.js، والتقرير في logs/report.txt و logs/trades.csv
 const { config } = require('./config');
 const data = require('./data');
 
@@ -30,8 +31,31 @@ function checkData() {
   console.log('\nأرسل هذه النتيجة كاملة. لا تُكتب الاستراتيجية قبل مراجعة الجودة.');
 }
 
+function backtest() {
+  const fs = require('fs');
+  const path = require('path');
+  const { findSetups } = require('./strategy');
+  const { simulate, nyInfo } = require('./engine');
+  const { buildReport, tradesCsv } = require('./report');
+  const { COSTS } = require('./rules');
+  const raw = data.loadCandles();
+  if (!raw.length) return console.log('لا توجد بيانات. شغّل أولاً: npm run fetch-data');
+  console.log('جاري الاختبار (قد يأخذ دقيقة أو اثنتين)...');
+  const { m1, setups } = findSetups(raw);
+  const base = simulate(m1, setups, { mode: 'R' });
+  const double = simulate(m1, setups, { mode: 'R', spread: COSTS.spread * 2 });
+  const usd = simulate(m1, setups, { mode: 'usd' });
+  const days = [...new Set(m1.map((c) => nyInfo(c.ms).date))];
+  const { text } = buildReport({ base, double, usd, days, setupsCount: setups.length, dataInfo: `${m1[0].time} → ${m1.at(-1).time} (${m1.length} شمعة في أوقات التداول)` });
+  console.log(text);
+  fs.mkdirSync(config.paths.logs, { recursive: true });
+  fs.writeFileSync(path.join(config.paths.logs, 'report.txt'), text);
+  fs.writeFileSync(path.join(config.paths.logs, 'trades.csv'), tradesCsv(base.trades));
+  console.log('\nالسجلات: logs/report.txt و logs/trades.csv');
+}
+
 const cmd = process.argv[2];
-Promise.resolve(cmd === 'fetch-data' ? fetchData() : cmd === 'check-data' ? checkData() : console.log('الأوامر: fetch-data | check-data')).catch((e) => {
+Promise.resolve(cmd === 'fetch-data' ? fetchData() : cmd === 'check-data' ? checkData() : cmd === 'backtest' ? backtest() : console.log('الأوامر: fetch-data | check-data | backtest')).catch((e) => {
   console.error('فشل:', e.message);
   console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
   process.exit(1);
