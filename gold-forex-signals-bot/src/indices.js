@@ -1,7 +1,7 @@
 // المؤشرات الأمريكية: RSI(2) يومي، شراء فقط، صفقة واحدة مفتوحة لكل مؤشر (كما في الاختبار).
-// البيانات اليومية من Yahoo. الافتراضي: NASDAQ 100 و S&P 500. لإيقافها: INDEX_SYMBOLS= (فارغ) في .env
-const DEFAULT_INDICES = 'NASDAQ 100,S&P 500';
-const XM_NAMES = { 'NASDAQ 100': 'US100Cash', 'S&P 500': 'US500Cash' };
+// البيانات اليومية من Yahoo. الافتراضي: NASDAQ 100 و S&P 500 و Dow Jones (نجح في 3 فترات 1992–2026، للمراقبة؛ يتحرك مع S&P 500). لإيقافها: INDEX_SYMBOLS= (فارغ) في .env
+const DEFAULT_INDICES = 'NASDAQ 100,S&P 500,DOW JONES';
+const XM_NAMES = { 'NASDAQ 100': 'US100Cash', 'S&P 500': 'US500Cash', 'DOW JONES': 'US30Cash' };
 
 function indexMarkets(text = DEFAULT_INDICES) {
   return text

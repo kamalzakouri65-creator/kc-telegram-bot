@@ -15,6 +15,7 @@ const { parseDisabled, isEnabled, describe, DEFAULT_DISABLED } = require('./setu
 const { cryptoMarkets, marketSignals, DEFAULT_CRYPTO } = require('./crypto');
 const { isCrypto } = require('./binance');
 const { indexMarkets, DEFAULT_INDICES } = require('./indices');
+const { createNews, formatToday, formatWeek, formatReminder, signalNote } = require('./news');
 
 const {
   TELEGRAM_BOT_TOKEN,
@@ -122,6 +123,9 @@ async function scan({ force = false } = {}) {
         if (!force && !isNew) continue;
         let text = formatSignal(symbol, interval, signal, strategyKeys.length > 1 || market.longOnly ? key : undefined, { maxLossUsd: Number(MAX_LOSS_USD) });
         if (same.length) text += `\n\n${formatOverlapNote(same[0])}`;
+        // تقويم الأخبار للمعلومة فقط: سطر تنبيه، ولا يغيّر الإشارة نفسها
+        const newsLine = signalNote(news.events());
+        if (newsLine) text += `\n\n${newsLine}`;
         found.push({ symbol, signal, text });
       }
     } catch (err) {
@@ -157,10 +161,15 @@ async function scheduledScan() {
 // رسالة "البوت يعمل" كل صباح، وملخص الأسبوع بعد إغلاق السوق يوم الجمعة
 let lastScanAt = null;
 const schedule = createSchedule(path.join(__dirname, '..', 'data', 'schedule.json'));
+// تقويم أخبار الدولار القوية: رسالة صباحية، وتذكير قبل 30 دقيقة، وأمر /news. للمعلومة فقط
+const news = createNews(path.join(__dirname, '..', 'data', 'news.json'));
 async function scheduledMessages() {
+  const newsWarning = await news.refresh();
+  if (newsWarning) await send(TELEGRAM_CHAT_ID, newsWarning);
+  for (const e of news.dueReminders()) await send(TELEGRAM_CHAT_ID, formatReminder(e));
   for (const { name } of schedule.due()) {
     const open = tracker.summary().open;
-    if (name === 'heartbeat') await send(TELEGRAM_CHAT_ID, formatHeartbeat(lastScanAt, open.length));
+    if (name === 'heartbeat') await send(TELEGRAM_CHAT_ID, `${formatHeartbeat(lastScanAt, open.length)}\n\n${formatToday(news.events())}`);
     if (name === 'weekly') {
       const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
       await send(TELEGRAM_CHAT_ID, formatWeekly(tracker.closedSince(since), open, since, tracker.summary()));
@@ -183,6 +192,7 @@ bot.onText(/^\/start/, (msg) => {
       '/status — حالة السوق الآن',
       '/signal — فحص فوري للإشارات',
       '/results — نتائج الإشارات السابقة (رابحة أو خاسرة)',
+      '/news — أخبار الدولار القوية هذا الأسبوع',
       '/account — الرصيد والصفقات المفتوحة في MT5',
       '/autotrade on|off — تشغيل أو إيقاف التداول الآلي',
       '',
@@ -220,6 +230,11 @@ bot.onText(/^\/signal/, async (msg) => {
 });
 
 bot.onText(/^\/results/, (msg) => send(msg.chat.id, formatResults(tracker.summary())));
+
+bot.onText(/^\/news/, async (msg) => {
+  await news.refresh().catch(() => null);
+  send(msg.chat.id, formatWeek(news.events()));
+});
 
 bot.onText(/^\/account/, async (msg) => {
   if (!isOwner(msg)) return;

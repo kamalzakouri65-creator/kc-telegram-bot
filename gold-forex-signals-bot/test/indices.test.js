@@ -38,7 +38,7 @@ test('RSI(2): إشارة شراء بعد هبوط حاد فوق متوسط 200 �
 });
 
 test('الأسواق الافتراضية، والإيقاف بقيمة فارغة', () => {
-  assert.deepStrictEqual(indexMarkets().map((m) => m.symbol), ['NASDAQ 100', 'S&P 500']);
+  assert.deepStrictEqual(indexMarkets().map((m) => m.symbol), ['NASDAQ 100', 'S&P 500', 'DOW JONES']);
   assert.ok(indexMarkets().every((m) => m.strategies.join() === 'rsi2' && m.onePosition && m.interval === '1day'));
   assert.strictEqual(indexMarkets('').length, 0);
 });

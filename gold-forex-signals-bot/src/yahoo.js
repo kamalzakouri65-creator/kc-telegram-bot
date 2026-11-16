@@ -3,7 +3,7 @@
 const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
 
 // الرمز عندنا -> الرمز عند Yahoo (SI=F = عقود الفضة الآجلة، تتداول تقريباً 24 ساعة)
-const YAHOO_SYMBOLS = { 'XAG/USD': 'SI=F', 'NASDAQ 100': '^NDX', 'S&P 500': '^GSPC' };
+const YAHOO_SYMBOLS = { 'XAG/USD': 'SI=F', 'NASDAQ 100': '^NDX', 'S&P 500': '^GSPC', 'DOW JONES': '^DJI' };
 
 // شمعة اليوم للمؤشرات تكتمل بعد إغلاق نيويورك (20:00 أو 21:00 UTC حسب التوقيت الصيفي)
 const US_CLOSE_DONE_UTC_MIN = 21 * 60 + 15;
