@@ -1,0 +1,12 @@
+{
+  "name": "kc-daily-audit",
+  "version": "1.0.0",
+  "description": "تدقيق إشارات المؤشرات (RSI2) والكريبتو (EMA+MACD يومي) — قراءة فقط من البوت، اختبار تاريخي فقط، بدون أي تداول",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch-data": "node src/main.js fetch-data",
+    "audit": "node src/main.js audit"
+  },
+  "engines": { "node": ">=18" }
+}
