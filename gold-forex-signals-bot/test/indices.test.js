@@ -91,6 +91,15 @@ test('رسالة إشارة المؤشر: لا أهداف، قاعدة الخر�
   const text = formatSignal('NASDAQ 100', '1day', analyzeRsi2(series()), 'rsi2', { maxLossUsd: 3 });
   assert.match(text, /NASDAQ 100 — 1day — RSI\(2\)/);
   assert.match(text, /الخروج: عند أول إغلاق يومي فوق متوسط 5 أيام، أو بعد 10 أيام/);
-  assert.match(text, /XM: US100Cash — شراء فقط/);
-  assert.doesNotMatch(text, /الهدف 1|لوت/);
+  assert.match(text, /XM: US100Cash — للمعلومة فقط، لا تتداول \(الخسارة بأصغر لوت 0.1: ~\d+\$\)/);
+  assert.doesNotMatch(text, /الهدف 1|شراء 0.1 لوت/);
+});
+
+test('رسالة S&P 500: شراء US500Cash بـ 0.1 لوت والخسارة بالدولار', () => {
+  const s = { side: 'BUY', time: '2026-11-18 14:30:00', entry: 7500, stopLoss: 7350, exitRule: { sma: 5, maxBars: 10 }, rsi: 6.2, atr: 75 };
+  const text = formatSignal('S&P 500', '1day', s, 'rsi2', { maxLossUsd: 3 });
+  assert.match(text, /✅ XM: US500Cash — شراء 0.1 لوت/);
+  assert.match(text, /الخسارة عند الوقف: ~15.00\$/);
+  const dow = formatSignal('DOW JONES', '1day', { ...s, entry: 50000, stopLoss: 49000 }, 'rsi2', { maxLossUsd: 3 });
+  assert.match(dow, /XM: US30Cash — للمعلومة فقط، لا تتداول \(الخسارة بأصغر لوت 0.1: ~100\$\)/);
 });

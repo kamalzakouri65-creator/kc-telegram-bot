@@ -23,6 +23,22 @@ function sizingLine(symbol, s, maxLossUsd) {
   return [`✅ مناسبة لحسابك: الحجم ${size.lot.toFixed(1)} لوت ← خسارة ~${size.loss.toFixed(2)}$ عند الوقف`];
 }
 
+// المؤشرات في حساب XM MT5 Micro: أصغر لوت 0.1، وحجم العقد 1 (0.10$ لكل نقطة). القواعد المتفق عليها (2026-11-16):
+// التداول على US500Cash فقط بـ 0.1 لوت ثابت؛ بقية المؤشرات للمعلومة فقط.
+const INDEX_LOT = 0.1;
+const TRADED_INDEX = 'S&P 500';
+function indexLines(symbol, s) {
+  const name = XM_NAMES[symbol];
+  if (!name) return [];
+  const loss = INDEX_LOT * Math.abs(s.entry - s.stopLoss);
+  if (symbol !== TRADED_INDEX) return [`ℹ️ XM: ${name} — للمعلومة فقط، لا تتداول (الخسارة بأصغر لوت ${INDEX_LOT}: ~${loss.toFixed(0)}$)`];
+  return [
+    `✅ XM: ${name} — شراء ${INDEX_LOT} لوت (حجم ثابت، لا أكثر)`,
+    `🛑 الخسارة عند الوقف: ~${loss.toFixed(2)}$ — ضع الوقف بالضبط ولا تحرّكه`,
+    '⏰ ادخل في أقرب وقت بعد الإشارة. إن لم تستطع اليوم، تخطَّها. لا تفتح صفقة ثانية إن كانت واحدة مفتوحة',
+  ];
+}
+
 function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
   const d = decimals(symbol);
   const icon = s.side === 'BUY' ? '🟢 شراء BUY' : '🔴 بيع SELL';
@@ -39,7 +55,7 @@ function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
     `⏱️ الإطار: ${timeframeLabel(interval)} — افتح الشارت على ${mt5Code(interval)}`,
     ...sizingLine(symbol, s, maxLossUsd),
     ...(symbol.endsWith('/USDT') ? ['🪙 Binance Spot — شراء فقط، بدون رافعة. إشارة متابعة: لا تدخل بمال حقيقي بعد'] : []),
-    ...(XM_NAMES[symbol] ? [`📈 XM: ${XM_NAMES[symbol]} — شراء فقط. إشارة متابعة: لا تدخل بمال حقيقي بعد`] : []),
+    ...indexLines(symbol, s),
     ...(s.zone ? [`🧱 ${s.zoneLabel ?? 'Order Block'}: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),
     '',
     `RSI: ${s.rsi.toFixed(1)} | ATR: ${s.atr.toFixed(d)}`,
