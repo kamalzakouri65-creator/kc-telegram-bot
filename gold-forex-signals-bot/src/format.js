@@ -1,6 +1,7 @@
 const { labelOf } = require('./strategies');
 const { suggestLot, timeframeLabel, mt5Code } = require('./sizing');
 const { XM_NAMES } = require('./indices');
+const { netR, netTotal } = require('./costs');
 
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
 function decimals(symbol) {
@@ -92,7 +93,8 @@ function formatResults(s) {
   else {
     lines.push(
       `المغلقة: ${s.closed} | رابحة: ${s.wins} | خاسرة: ${s.losses} | نسبة الربح: ${((s.wins / s.closed) * 100).toFixed(0)}%`,
-      `المجموع: ${fmtR(s.totalR)}`,
+      `المجموع: ${fmtR(s.totalR)} قبل التكاليف${s.closedTrades ? ` | ${netLabel(s.closedTrades)} بعد التكاليف (تقديري)` : ''}`,
+      ...(s.closedTrades ? ['', 'حسب السوق (بعد التكاليف):', ...MARKETS.map((name) => marketLine(name, s.closedTrades.filter((t) => marketName(t.symbol) === name)))] : []),
       ...(Object.keys(s.byStrategy).length > 1
         ? [
             '',
@@ -113,7 +115,10 @@ function formatResults(s) {
         : []),
       '',
       'آخر الإشارات:',
-      ...s.recent.map((t) => `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}`)
+      ...s.recent.map((t) => {
+        const n = netR(t);
+        return `${t.r > 0 ? '✅' : '❌'} ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.time} → ${fmtR(t.r)}${n == null ? '' : ` (بعد التكاليف ${fmtR(n)})`}`;
+      })
     );
   }
   if (s.open.length) {
@@ -123,11 +128,24 @@ function formatResults(s) {
       lines.push(`• ${t.symbol} ${t.interval} ${labelOf(t.strategy)} ${sideLabel(t.side)} ${t.entry.toFixed(decimals(t.symbol))} (${t.time})${tp1}`);
     }
   }
-  lines.push('', 'R = المبلغ الذي تخاطر به في الصفقة. النتائج بدون السبريد.');
+  lines.push('', COSTS_NOTE);
   return lines.join('\n');
 }
 
-const marketName = (symbol) => (symbol.startsWith('XAU') ? 'الذهب' : symbol.startsWith('XAG') ? 'الفضة' : symbol.endsWith('/USDT') ? 'العملات الرقمية' : symbol);
+const COSTS_NOTE = 'R = المبلغ الذي تخاطر به في الصفقة. "بعد التكاليف" تقديري: سبريد وانزلاق و Swap (والرسوم في الكريبتو)، بنفس أرقام الاختبارات.';
+// مجموع بعد التكاليف، مع التنبيه إذا لم تُعرف تكلفة بعض الصفقات
+function netLabel(list) {
+  const { total, unknown } = netTotal(list);
+  return `${fmtR(total)}${unknown ? ` (${unknown} بدون تكلفة معروفة)` : ''}`;
+}
+const MARKETS = ['الذهب', 'الفضة', 'العملات الرقمية', 'المؤشرات'];
+function marketLine(name, list) {
+  if (!list.length) return `• ${name}: 0 مغلقة`;
+  return `• ${name}: ${list.length} مغلقة | رابحة ${list.filter((t) => t.r > 0).length} | ${netLabel(list)}`;
+}
+
+const marketName = (symbol) =>
+  symbol.startsWith('XAU') ? 'الذهب' : symbol.startsWith('XAG') ? 'الفضة' : symbol.endsWith('/USDT') ? 'العملات الرقمية' : XM_NAMES[symbol] ? 'المؤشرات' : symbol;
 
 // ملخص الأسبوع: الصفقات التي أُغلقت منذ since
 function formatWeekly(closed, open, since, all) {
@@ -136,17 +154,17 @@ function formatWeekly(closed, open, since, all) {
   const lines = [`📅 ملخص الأسبوع (منذ ${since.slice(0, 10)})`, ''];
   if (!w.n) lines.push('لا صفقات مغلقة هذا الأسبوع.');
   else {
-    lines.push(`المغلقة: ${w.n} | رابحة: ${w.wins} | خاسرة: ${w.losses} | المجموع: ${fmtR(w.r)}`, '');
+    lines.push(`المغلقة: ${w.n} | رابحة: ${w.wins} | خاسرة: ${w.losses} | المجموع: ${fmtR(w.r)} (بعد التكاليف ${netLabel(closed)})`, '');
     const groups = {};
     for (const t of closed) (groups[marketName(t.symbol)] ??= []).push(t);
     for (const [name, list] of Object.entries(groups)) {
       const g = tally(list);
-      lines.push(`• ${name}: ${g.n} | رابحة ${g.wins} | ${fmtR(g.r)}`);
+      lines.push(`• ${name}: ${g.n} | رابحة ${g.wins} | ${fmtR(g.r)} (بعد التكاليف ${netLabel(list)})`);
     }
   }
   lines.push('', `⏳ مفتوحة الآن: ${open.length}`);
-  if (all) lines.push(`📒 منذ البداية: ${all.closed} مغلقة | ${fmtR(all.totalR)}`);
-  lines.push('', 'R = المبلغ الذي تخاطر به في الصفقة. النتائج بدون السبريد.');
+  if (all) lines.push(`📒 منذ البداية: ${all.closed} مغلقة | ${fmtR(all.totalR)}${all.closedTrades ? ` (بعد التكاليف ${netLabel(all.closedTrades)})` : ''}`);
+  lines.push('', COSTS_NOTE);
   return lines.join('\n');
 }
 

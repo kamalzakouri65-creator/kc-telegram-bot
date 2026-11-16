@@ -148,6 +148,8 @@ function createTracker(file) {
         bySide,
         open: trades.filter((t) => !t.closed),
         recent: closed.slice(-10),
+        // كل الصفقات المغلقة، لحساب النتيجة بعد التكاليف عند العرض
+        closedTrades: closed,
       };
     },
   };
