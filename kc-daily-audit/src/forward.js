@@ -6,7 +6,8 @@ const { nights } = require('../../kc-nasdaq-daily/src/engine');
 const { config: ndxConfig } = require('../../kc-nasdaq-daily/src/config');
 
 const RULES = {
-  markets: { 'NASDAQ 100': { ticker: '^NDX', spreadPct: 0.007 }, 'S&P 500': { ticker: '^GSPC', spreadPct: 0.01 } },
+  // Dow Jones أضيف في 2026-11-16 قبل أي إشارة (بموافقة صاحب المشروع)، بسبريد متحفظ 0.02% كما في اختباره
+  markets: { 'NASDAQ 100': { ticker: '^NDX', spreadPct: 0.007 }, 'S&P 500': { ticker: '^GSPC', spreadPct: 0.01 }, 'DOW JONES': { ticker: '^DJI', spreadPct: 0.02 } },
   strategy: 'rsi2',
   from: '2026-11-17',
   swapPctPerNight: 0.02,
@@ -88,7 +89,7 @@ function report(s, cmp) {
   const sgn = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(2)}`;
   const row = (label, x) => `${label}: ${x.n} صفقة | ربح ${x.winRate.toFixed(0)}% | PF ${pf(x)} | ${sgn(x.net)}R | تراجع ${x.maxDd.toFixed(1)}R`;
   const L = [
-    'الاختبار المستقبلي — المؤشرات RSI(2) (الشروط في docs/FORWARD-TEST-INDICES.md، مسجلة 2026-11-16)',
+    'الاختبار المستقبلي — المؤشرات RSI(2): NASDAQ 100 و S&P 500 و Dow Jones (الشروط في docs/FORWARD-TEST-INDICES.md، مسجلة 2026-11-16)',
     `من ${RULES.from} | صفقات مغلقة ${s.trades.length} من ${RULES.minTrades} | مفتوحة ${s.open}`,
     `النتائج بعد خصم السبريد و Swap ${RULES.swapPctPerNight}% لكل ليلة`,
     '',
