@@ -1,5 +1,5 @@
 const { labelOf } = require('./strategies');
-const { suggestLot, timeframeLabel, mt5Code } = require('./sizing');
+const { timeframeLabel, mt5Code } = require('./sizing');
 const { XM_NAMES } = require('./indices');
 const { netR, netTotal } = require('./costs');
 
@@ -11,17 +11,7 @@ function decimals(symbol) {
   return 5;
 }
 
-// سطر الحجم المقترح لحساب صغير (أقصى خسارة maxLossUsd عند الوقف)
-function sizingLine(symbol, s, maxLossUsd) {
-  const size = suggestLot(symbol, s.entry, s.stopLoss, maxLossUsd);
-  if (!size) return [];
-  const d = decimals(symbol);
-  if (size.tooClose)
-    return [`❌ الوقف قريب جداً (${size.distance.toFixed(d)}، الحد الأدنى ${size.minStop}): السبريد يأكل جزءاً كبيراً من الصفقة — تخطَّها`];
-  if (!size.ok)
-    return [`❌ الوقف بعيد (${size.distance.toFixed(d)}): أصغر حجم 0.1 يخسر ~${size.minLoss.toFixed(2)}$ (أكثر من ${maxLossUsd}$) — تخطَّها`];
-  return [`✅ مناسبة لحسابك: الحجم ${size.lot.toFixed(1)} لوت ← خسارة ~${size.loss.toFixed(2)}$ عند الوقف`];
-}
+const INFO_ONLY = 'ℹ️ للمعلومة فقط — لا تتداول (غير مثبتة). التداول الحقيقي على US500Cash فقط';
 
 // المؤشرات في حساب XM MT5 Micro: أصغر لوت 0.1، وحجم العقد 1 (0.10$ لكل نقطة). القواعد المتفق عليها (2026-11-16):
 // التداول على US500Cash فقط بـ 0.1 لوت ثابت؛ بقية المؤشرات للمعلومة فقط.
@@ -43,7 +33,7 @@ function indexLines(symbol, s) {
   ];
 }
 
-function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
+function formatSignal(symbol, interval, s, strategy) {
   const d = decimals(symbol);
   const icon = s.side === 'BUY' ? '🟢 شراء BUY' : '🔴 بيع SELL';
   return [
@@ -57,7 +47,8 @@ function formatSignal(symbol, interval, s, strategy, { maxLossUsd } = {}) {
       : [`🎯 الهدف 1: ${s.takeProfit1.toFixed(d)}`, `🎯 الهدف 2: ${s.takeProfit2.toFixed(d)}`]),
     '',
     `⏱️ الإطار: ${timeframeLabel(interval)} — افتح الشارت على ${mt5Code(interval)}`,
-    ...sizingLine(symbol, s, maxLossUsd),
+    // تحديث 2026-11-17: التداول الحقيقي على US500Cash فقط؛ بقية الأسواق للمعلومة (لا اقتراح حجم حتى لا يبدو كدعوة للتداول)
+    ...(XM_NAMES[symbol] ? [] : [INFO_ONLY]),
     ...(symbol.endsWith('/USDT') ? ['🪙 Binance Spot — شراء فقط، بدون رافعة. إشارة متابعة: لا تدخل بمال حقيقي بعد'] : []),
     ...indexLines(symbol, s),
     ...(s.zone ? [`🧱 ${s.zoneLabel ?? 'Order Block'}: ${s.zone.bottom.toFixed(d)} - ${s.zone.top.toFixed(d)}`] : []),

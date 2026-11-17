@@ -27,14 +27,14 @@ test('رمز غير معروف أو حد 0: لا يوجد سطر حجم', () => 
   assert.strictEqual(suggestLot('XAU/USD', 4090, 4080, 0), null);
 });
 
-test('رسالة الإشارة تذكر الإطار والحجم أو التخطي', () => {
+test('رسالة الإشارة تذكر الإطار، وإشارات الذهب والفضة والكريبتو للمعلومة فقط بلا حجم', () => {
   const ok = formatSignal('XAU/USD', '1h', sig(4090.2, 4068.5), 'pullback', { maxLossUsd: 3 });
   assert.match(ok, /⏱️ الإطار: ساعة واحدة \(H1\) — افتح الشارت على H1/);
-  assert.match(ok, /✅ مناسبة لحسابك: الحجم 0\.1 لوت ← خسارة ~2\.17\$ عند الوقف/);
+  assert.match(ok, /ℹ️ للمعلومة فقط — لا تتداول \(غير مثبتة\)\. التداول الحقيقي على US500Cash فقط/);
+  assert.doesNotMatch(ok, /✅|مناسبة لحسابك|لوت/);
   const far = formatSignal('XAG/USD', '4h', sig(51.765, 53.718), 'pullback', { maxLossUsd: 3 });
   assert.match(far, /الإطار: 4 ساعات \(H4\) — افتح الشارت على H4/);
-  assert.match(far, /❌ الوقف بعيد \(1\.953\): أصغر حجم 0\.1 يخسر ~9\.77\$ \(أكثر من 3\$\) — تخطَّها/);
-  assert.doesNotMatch(formatSignal('XAU/USD', '1h', sig(4090, 4080)), /مناسبة|تخطَّها/, 'بدون حد لا يظهر سطر الحجم');
+  assert.match(far, /ℹ️ للمعلومة فقط/);
   assert.strictEqual(timeframeLabel('2h'), '2h');
 });
 
@@ -42,7 +42,6 @@ test('وقف قريب جداً (مثل فتح السوق بعد العطلة): �
   const s = suggestLot('XAU/USD', 4066.85, 4065.09, 3);
   assert.deepStrictEqual([s.ok, s.tooClose], [false, true]);
   const text = formatSignal('XAU/USD', '1h', sig(4066.85, 4065.09), 'pullback', { maxLossUsd: 3 });
-  assert.match(text, /❌ الوقف قريب جداً \(1\.76، الحد الأدنى 5\)/);
   assert.doesNotMatch(text, /1\.6 لوت/);
   assert.strictEqual(suggestLot('XAG/USD', 51.8, 51.7, 3).tooClose, true);
   assert.strictEqual(suggestLot('XAU/USD', 4090, 4084, 3).lot, 0.5, 'وقف 6$ مقبول، والحجم الأقصى يصبح صغيراً');

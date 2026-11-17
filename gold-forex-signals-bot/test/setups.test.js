@@ -2,13 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { parseDisabled, isEnabled, describe, DEFAULT_DISABLED } = require('../src/setups');
 
-test('الافتراضي يوقف الفضة 1h Pullback فقط', () => {
+test('الافتراضي يوقف كل الفضة والذهب 1h، ويبقي الذهب 4h', () => {
   const { set, invalid } = parseDisabled(DEFAULT_DISABLED);
   assert.deepStrictEqual(invalid, []);
-  assert.strictEqual(isEnabled(set, 'XAG/USD', '1h', 'pullback'), false);
-  for (const [s, i, k] of [['XAG/USD', '1h', 'ema-macd'], ['XAG/USD', '4h', 'pullback'], ['XAU/USD', '1h', 'pullback'], ['XAU/USD', '4h', 'ema-macd']])
-    assert.strictEqual(isEnabled(set, s, i, k), true, `${s} ${i} ${k}`);
-  assert.deepStrictEqual(describe(set), ['XAG/USD 1h Pullback']);
+  for (const [s, i, k] of [['XAG/USD', '1h', 'pullback'], ['XAG/USD', '1h', 'ema-macd'], ['XAG/USD', '4h', 'pullback'], ['XAG/USD', '4h', 'ema-macd'], ['XAU/USD', '1h', 'pullback'], ['XAU/USD', '1h', 'ema-macd']])
+    assert.strictEqual(isEnabled(set, s, i, k), false, `${s} ${i} ${k}`);
+  for (const k of ['ema-macd', 'pullback']) assert.strictEqual(isEnabled(set, 'XAU/USD', '4h', k), true);
+  assert.strictEqual(describe(set).length, 6);
 });
 
 test('فارغ = لا شيء موقوف، وأكثر من إعداد مفصولة بفواصل', () => {

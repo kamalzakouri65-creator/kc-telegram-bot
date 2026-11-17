@@ -1,9 +1,11 @@
 // إيقاف استراتيجية على زوج وإطار محددين، مثل DISABLED_SETUPS=XAG/USD:1h:pullback
-// الافتراضي (بدون أي تعديل في .env): إيقاف الفضة 1h Pullback، لأنها خسرت −12.3R في اختبار سنتين (2024-11 → 2026-11).
+// الافتراضي (بدون أي تعديل في .env)، تحديث 2026-11-17 بموافقة صاحب المشروع: إيقاف كل الفضة والذهب 1h.
+// السبب: تدقيق 2020–2024 أظهر أن الذهب 1h خاسر بعد التكاليف، والفضة بنفس القواعد غير مثبتة (ولا بيانات مستقلة لها).
+// الذهب 4h يبقى لأنه في الاختبار المستقبلي (kc-trend-audit/docs/FORWARD-TEST.md). الصفقات المفتوحة تُتابع حتى تُغلق.
 // لإعادة تشغيل كل شيء: DISABLED_SETUPS= (فارغ) في ملف .env
 const { STRATEGIES, labelOf } = require('./strategies');
 
-const DEFAULT_DISABLED = 'XAG/USD:1h:pullback';
+const DEFAULT_DISABLED = 'XAU/USD:1h:ema-macd,XAU/USD:1h:pullback,XAG/USD:1h:ema-macd,XAG/USD:1h:pullback,XAG/USD:4h:ema-macd,XAG/USD:4h:pullback';
 
 function parseDisabled(text) {
   const set = new Set();
