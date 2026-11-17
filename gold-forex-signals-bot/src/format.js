@@ -27,11 +27,15 @@ function sizingLine(symbol, s, maxLossUsd) {
 // التداول على US500Cash فقط بـ 0.1 لوت ثابت؛ بقية المؤشرات للمعلومة فقط.
 const INDEX_LOT = 0.1;
 const TRADED_INDEX = 'S&P 500';
+// تحديث 2026-11-17: رصيد 1,000$؛ نتخطى الإشارة إذا كانت الخسارة عند الوقف أكثر من 40$ (4%)
+const MAX_INDEX_LOSS_USD = 40;
 function indexLines(symbol, s) {
   const name = XM_NAMES[symbol];
   if (!name) return [];
   const loss = INDEX_LOT * Math.abs(s.entry - s.stopLoss);
   if (symbol !== TRADED_INDEX) return [`ℹ️ XM: ${name} — للمعلومة فقط، لا تتداول (الخسارة بأصغر لوت ${INDEX_LOT}: ~${loss.toFixed(0)}$)`];
+  if (loss > MAX_INDEX_LOSS_USD)
+    return [`⛔ تخطَّ هذه الإشارة: الخسارة عند الوقف ~${loss.toFixed(2)}$ أكبر من ${MAX_INDEX_LOSS_USD}$ (قاعدة الحساب). البوت يتابعها للمعلومة فقط`];
   return [
     `✅ XM: ${name} — شراء ${INDEX_LOT} لوت (حجم ثابت، لا أكثر)`,
     `🛑 الخسارة عند الوقف: ~${loss.toFixed(2)}$ — ضع الوقف بالضبط ولا تحرّكه`,

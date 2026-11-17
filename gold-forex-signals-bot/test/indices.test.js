@@ -100,6 +100,9 @@ test('رسالة S&P 500: شراء US500Cash بـ 0.1 لوت والخسارة ب
   const text = formatSignal('S&P 500', '1day', s, 'rsi2', { maxLossUsd: 3 });
   assert.match(text, /✅ XM: US500Cash — شراء 0.1 لوت/);
   assert.match(text, /الخسارة عند الوقف: ~15.00\$/);
+  const big = formatSignal('S&P 500', '1day', { ...s, stopLoss: 7050 }, 'rsi2', { maxLossUsd: 3 });
+  assert.match(big, /⛔ تخطَّ هذه الإشارة: الخسارة عند الوقف ~45.00\$ أكبر من 40\$/);
+  assert.doesNotMatch(big, /شراء 0.1 لوت/);
   const dow = formatSignal('DOW JONES', '1day', { ...s, entry: 50000, stopLoss: 49000 }, 'rsi2', { maxLossUsd: 3 });
   assert.match(dow, /XM: US30Cash — للمعلومة فقط، لا تتداول \(الخسارة بأصغر لوت 0.1: ~100\$\)/);
 });
