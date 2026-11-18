@@ -1,0 +1,12 @@
+{
+  "name": "kc-forex-bos",
+  "version": "1.0.0",
+  "description": "كسر الهيكل (BOS) على EUR/USD إطار ساعة، هدف 2.5R — اختبار تاريخي فقط، بدون أي تداول",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch": "node src/main.js fetch",
+    "run-test": "node src/main.js run"
+  },
+  "engines": { "node": ">=18" }
+}
