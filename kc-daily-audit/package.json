@@ -9,7 +9,8 @@
     "audit": "node src/main.js audit",
     "forward": "node src/forward.js",
     "new-indices": "node src/new-indices.js",
-    "research": "node src/research.js"
+    "research": "node src/research.js",
+    "overnight": "node src/overnight.js"
   },
   "engines": {
     "node": ">=18"
