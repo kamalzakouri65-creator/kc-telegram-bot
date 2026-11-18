@@ -10,7 +10,8 @@
     "forward": "node src/forward.js",
     "new-indices": "node src/new-indices.js",
     "research": "node src/research.js",
-    "overnight": "node src/overnight.js"
+    "overnight": "node src/overnight.js",
+    "ibs": "node src/ibs.js"
   },
   "engines": {
     "node": ">=18"
