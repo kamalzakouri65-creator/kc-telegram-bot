@@ -11,7 +11,8 @@
     "new-indices": "node src/new-indices.js",
     "research": "node src/research.js",
     "overnight": "node src/overnight.js",
-    "ibs": "node src/ibs.js"
+    "ibs": "node src/ibs.js",
+    "holiday": "node src/holiday.js"
   },
   "engines": {
     "node": ">=18"
