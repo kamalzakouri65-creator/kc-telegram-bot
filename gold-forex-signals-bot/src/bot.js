@@ -186,7 +186,7 @@ bot.onText(/^\/start/, (msg) => {
       `الاستراتيجية: ${strategyKeys.map((key) => STRATEGIES[key].label).join(' و ')}`,
       ...(disabled.size ? [`⏸️ موقوف: ${describe(disabled).join('، ')}`] : []),
       ...(crypto.length ? [`🪙 عملات رقمية (يومي، EMA + MACD، شراء فقط، متابعة): ${crypto.map((m) => m.symbol).join(', ')}`] : []),
-      ...(indices.length ? [`📈 مؤشرات أمريكية (يومي، RSI(2)، شراء فقط، متابعة): ${indices.map((m) => m.symbol).join(', ')}`] : []),
+      ...(indices.length ? [`📈 مؤشرات وصناديق أمريكية (يومي، RSI(2)، شراء فقط): ${indices.map((m) => m.symbol).join(', ')}`] : []),
       '',
       'الأوامر:',
       '/status — حالة السوق الآن',

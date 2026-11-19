@@ -3,7 +3,7 @@
 const HOUR = 3600 * 1000;
 const SWAP_PCT_PER_NIGHT = 0.02;
 const METALS = { 'XAU/USD': { spread: 0.24, slippage: 0.1 }, 'XAG/USD': { spread: 0.07, slippage: 0.01 } };
-const INDEX_SPREAD_PCT = { 'NASDAQ 100': 0.007, 'S&P 500': 0.01, 'DOW JONES': 0.02 };
+const INDEX_SPREAD_PCT = { 'NASDAQ 100': 0.007, 'S&P 500': 0.01, 'DOW JONES': 0.02, XLY: 0.05, XLK: 0.05 };
 const CRYPTO_ROUND_TRIP_PCT = 2 * (0.1 + 0.05); // رسوم + انزلاق على الدخول والخروج
 const INTERVAL_MS = { '1h': HOUR, '4h': 4 * HOUR, '1day': 24 * HOUR };
 

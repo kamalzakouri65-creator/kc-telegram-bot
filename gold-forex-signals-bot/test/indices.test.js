@@ -38,7 +38,7 @@ test('RSI(2): إشارة شراء بعد هبوط حاد فوق متوسط 200 �
 });
 
 test('الأسواق الافتراضية، والإيقاف بقيمة فارغة', () => {
-  assert.deepStrictEqual(indexMarkets().map((m) => m.symbol), ['NASDAQ 100', 'S&P 500', 'DOW JONES']);
+  assert.deepStrictEqual(indexMarkets().map((m) => m.symbol), ['NASDAQ 100', 'S&P 500', 'DOW JONES', 'XLY', 'XLK']);
   assert.ok(indexMarkets().every((m) => m.strategies.join() === 'rsi2' && m.onePosition && m.interval === '1day'));
   assert.strictEqual(indexMarkets('').length, 0);
 });
@@ -105,4 +105,15 @@ test('رسالة S&P 500: شراء US500Cash بـ 0.1 لوت والخسارة ب
   assert.doesNotMatch(big, /شراء 0.1 لوت/);
   const dow = formatSignal('DOW JONES', '1day', { ...s, entry: 50000, stopLoss: 49000 }, 'rsi2', { maxLossUsd: 3 });
   assert.match(dow, /XM: US30Cash — للمعلومة فقط، لا تتداول \(الخسارة بأصغر لوت 0.1: ~100\$\)/);
+});
+
+test('صناديق XLY و XLK: الحجم بالسهم، والدخول والخروج عند افتتاح الغد', () => {
+  const s = { side: 'BUY', time: '2026-11-18 14:30:00', entry: 220, stopLoss: 210, exitRule: { sma: 5, maxBars: 10 }, rsi: 7, atr: 5 };
+  const xly = formatSignal('XLY', '1day', s, 'rsi2');
+  assert.match(xly, /✅ XM: XLY — شراء 2\.00 سهم عند افتتاح الغد/);
+  assert.match(xly, /خسارة ~20\.00\$/);
+  assert.match(formatSignal('XLY', '1day', { ...s, stopLoss: 120 }, 'rsi2'), /⛔ تخطَّ هذه الإشارة: أصغر حجم يخسر ~50\.00\$/);
+  assert.match(formatSignal('XLK', '1day', s, 'rsi2'), /ℹ️ XM: XLK — للمعلومة فقط/);
+  const trade = { symbol: 'XLY', interval: '1day', strategy: 'rsi2', side: 'BUY', entry: 220, time: '2026-11-18 14:30:00', exit: 226, exitReason: 'sma', exitRule: { sma: 5, maxBars: 10 }, r: 0.6 };
+  assert.match(formatTradeEvent({ type: 'exit', trade }), /اخرج عند افتتاح الغد/);
 });

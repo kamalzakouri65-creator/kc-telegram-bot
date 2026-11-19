@@ -13,7 +13,8 @@
     "overnight": "node src/overnight.js",
     "ibs": "node src/ibs.js",
     "holiday": "node src/holiday.js",
-    "sectors": "node src/sectors.js"
+    "sectors": "node src/sectors.js",
+    "forward-xly": "node src/forward.js xly"
   },
   "engines": {
     "node": ">=18"

@@ -1,6 +1,6 @@
 const { labelOf } = require('./strategies');
 const { timeframeLabel, mt5Code } = require('./sizing');
-const { XM_NAMES } = require('./indices');
+const { XM_NAMES, ETFS } = require('./indices');
 const { netR, netTotal } = require('./costs');
 
 // عدد الأرقام العشرية حسب الرمز: الذهب والين برقمين، وبقية الفوركس بخمسة
@@ -19,9 +19,28 @@ const INDEX_LOT = 0.1;
 const TRADED_INDEX = 'S&P 500';
 // تحديث 2026-11-17: رصيد 1,000$؛ نتخطى الإشارة إذا كانت الخسارة عند الوقف أكثر من 40$ (4%)
 const MAX_INDEX_LOSS_USD = 40;
+// صناديق ETF في XM (أصغر حجم 0.5 سهم، والخطوة 0.01): الحجم لخسارة ~20$ عند الوقف (~2% من 1,000$).
+// السوق مغلق وقت الإشارة، فالدخول عند افتتاح الغد. XLY للتداول (بعد التجريبي)، و XLK للمعلومة فقط.
+const ETF_RISK_USD = 20;
+const ETF_MIN = 0.5;
+const TRADED_ETF = 'XLY';
+function etfLines(symbol, s) {
+  const dist = Math.abs(s.entry - s.stopLoss);
+  if (symbol !== TRADED_ETF) return [`ℹ️ XM: ${symbol} — للمعلومة فقط، لا تتداول (ميزة ضعيفة في الاختبار)`];
+  const size = Math.max(ETF_MIN, Math.floor((ETF_RISK_USD / dist) * 100) / 100);
+  const loss = size * dist;
+  if (loss > MAX_INDEX_LOSS_USD) return [`⛔ تخطَّ هذه الإشارة: أصغر حجم يخسر ~${loss.toFixed(2)}$ عند الوقف (أكبر من ${MAX_INDEX_LOSS_USD}$)`];
+  return [
+    `✅ XM: ${symbol} — شراء ${size.toFixed(2)} سهم عند افتتاح الغد (السوق مغلق الآن)`,
+    `🛑 الوقف ${s.stopLoss.toFixed(2)} ← خسارة ~${loss.toFixed(2)}$ إذا افتتح قريباً من ${s.entry.toFixed(2)}. ضع الوقف بالضبط ولا تحرّكه`,
+    '⏰ إذا افتتح السعر تحت الوقف، لا تدخل. لا تفتح صفقة ثانية إن كانت واحدة مفتوحة',
+  ];
+}
+
 function indexLines(symbol, s) {
   const name = XM_NAMES[symbol];
   if (!name) return [];
+  if (ETFS.has(symbol)) return etfLines(symbol, s);
   const loss = INDEX_LOT * Math.abs(s.entry - s.stopLoss);
   if (symbol !== TRADED_INDEX) return [`ℹ️ XM: ${name} — للمعلومة فقط، لا تتداول (الخسارة بأصغر لوت ${INDEX_LOT}: ~${loss.toFixed(0)}$)`];
   if (loss > MAX_INDEX_LOSS_USD)
@@ -76,7 +95,8 @@ function formatTradeEvent({ type, trade }) {
   const head = `${trade.symbol} ${trade.interval} ${labelOf(trade.strategy)} — ${sideLabel(trade.side)} ${trade.entry.toFixed(d)} (${trade.time})`;
   if (type === 'exit') {
     const why = trade.exitReason === 'time' ? `مرت ${trade.exitRule.maxBars} أيام` : `أُغلق السعر فوق متوسط ${trade.exitRule.sma} أيام`;
-    return `🔔 ${head}\nاخرج الآن: ${why}. الخروج عند ${trade.exit.toFixed(d)}\nالنتيجة: ${fmtR(trade.r)} ${trade.r > 0 ? '✅' : '❌'}`;
+    const when = ETFS.has(trade.symbol) ? 'اخرج عند افتتاح الغد (السوق مغلق الآن)' : 'اخرج الآن';
+    return `🔔 ${head}\n${when}: ${why}. إغلاق اليوم ${trade.exit.toFixed(d)}\nالنتيجة: ${fmtR(trade.r)} ${trade.r > 0 ? '✅' : '❌'}`;
   }
   if (trade.exitRule) return `❌ ${head}\nضرب وقف الخسارة، الخروج عند ${trade.exit.toFixed(d)}\nالنتيجة: ${fmtR(trade.r)}`;
   if (type === 'tp1') {
