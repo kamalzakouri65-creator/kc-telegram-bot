@@ -112,7 +112,7 @@ test('صناديق XLY و XLK: الحجم بالسهم، والدخول والخ
   const xly = formatSignal('XLY', '1day', s, 'rsi2');
   assert.match(xly, /✅ XM: XLY — شراء 2\.00 سهم عند افتتاح الغد/);
   assert.match(xly, /خسارة ~20\.00\$/);
-  assert.match(formatSignal('XLY', '1day', { ...s, stopLoss: 120 }, 'rsi2'), /⛔ تخطَّ هذه الإشارة: أصغر حجم يخسر ~50\.00\$/);
+  assert.match(formatSignal('XLY', '1day', { ...s, stopLoss: 120 }, 'rsi2'), /⛔ تخطَّ هذه الإشارة: أصغر حجم يخسر ~70\.00\$/);
   assert.match(formatSignal('XLK', '1day', s, 'rsi2'), /ℹ️ XM: XLK — للمعلومة فقط/);
   const trade = { symbol: 'XLY', interval: '1day', strategy: 'rsi2', side: 'BUY', entry: 220, time: '2026-11-18 14:30:00', exit: 226, exitReason: 'sma', exitRule: { sma: 5, maxBars: 10 }, r: 0.6 };
   assert.match(formatTradeEvent({ type: 'exit', trade }), /اخرج عند افتتاح الغد/);

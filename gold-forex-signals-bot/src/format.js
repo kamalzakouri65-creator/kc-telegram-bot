@@ -22,12 +22,13 @@ const MAX_INDEX_LOSS_USD = 40;
 // صناديق ETF في XM (أصغر حجم 0.5 سهم، والخطوة 0.01): الحجم لخسارة ~20$ عند الوقف (~2% من 1,000$).
 // السوق مغلق وقت الإشارة، فالدخول عند افتتاح الغد. XLY للتداول (بعد التجريبي)، و XLK للمعلومة فقط.
 const ETF_RISK_USD = 20;
-const ETF_MIN = 0.5;
+// أصغر حجم في XM (من المواصفات): XLY 0.7، XLK 0.5، والخطوة 0.01
+const ETF_MIN = { XLY: 0.7, XLK: 0.5 };
 const TRADED_ETF = 'XLY';
 function etfLines(symbol, s) {
   const dist = Math.abs(s.entry - s.stopLoss);
   if (symbol !== TRADED_ETF) return [`ℹ️ XM: ${symbol} — للمعلومة فقط، لا تتداول (ميزة ضعيفة في الاختبار)`];
-  const size = Math.max(ETF_MIN, Math.floor((ETF_RISK_USD / dist) * 100) / 100);
+  const size = Math.max(ETF_MIN[symbol] ?? 1, Math.floor((ETF_RISK_USD / dist) * 100) / 100);
   const loss = size * dist;
   if (loss > MAX_INDEX_LOSS_USD) return [`⛔ تخطَّ هذه الإشارة: أصغر حجم يخسر ~${loss.toFixed(2)}$ عند الوقف (أكبر من ${MAX_INDEX_LOSS_USD}$)`];
   return [
