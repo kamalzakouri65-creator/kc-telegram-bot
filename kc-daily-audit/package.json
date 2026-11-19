@@ -14,7 +14,8 @@
     "ibs": "node src/ibs.js",
     "holiday": "node src/holiday.js",
     "sectors": "node src/sectors.js",
-    "forward-xly": "node src/forward.js xly"
+    "forward-xly": "node src/forward.js xly",
+    "crypto-more": "node src/crypto-more.js"
   },
   "engines": {
     "node": ">=18"
