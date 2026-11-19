@@ -7,6 +7,7 @@ const { signals } = require('./strategy');
 const { simulate, metrics } = require('./backtest');
 const report = require('./report');
 const { RULE3, GRID3, idea3Trades } = require('./idea3');
+const { RULE4, GRID4, EXNESS_ZERO_COST, toH1, idea4Trades } = require('./idea4');
 
 function judge(bars, inSection, { fade = false } = {}) {
   const run = (rule, opts) => simulate(bars, signals(bars, rule, { fade }), opts).filter((t) => inSection(t.day));
@@ -78,6 +79,50 @@ function idea3(kind) {
   if (!done) data.save(marker, { at: new Date().toISOString(), pass: j.pass });
 }
 
+// الفكرة 4: فيبوناتشي 61.8% مع شمعة تأكيد على الساعة
+function judge4(h1, inSection) {
+  const run = (rule, opts) => idea4Trades(h1, rule, opts).filter((t) => inSection(t.day));
+  const trades = run(RULE4);
+  const m = metrics(trades);
+  const md = metrics(run(RULE4, { spreadMult: 2 }));
+  const mz = metrics(run(RULE4, { cost: EXNESS_ZERO_COST }));
+  const years = [...new Set(trades.map((t) => t.year))].sort().map((year) => ({ year, m: metrics(trades.filter((t) => t.year === year)) }));
+  const grid = [];
+  for (const rr of GRID4.level) for (const stopFrac of GRID4.pivot) grid.push({ rr, stopFrac, m: metrics(run({ ...RULE4, level: rr, pivot: stopFrac })) });
+  const positive = grid.filter((g) => g.m.net > 0).length;
+  const how = {};
+  for (const t of trades) how[t.how] = (how[t.how] ?? 0) + 1;
+  const C = config.criteria;
+  const reasons = [];
+  if (!(m.pf >= C.minPf)) reasons.push(`PF ${Number.isFinite(m.pf) ? m.pf.toFixed(2) : '∞'} أقل من ${C.minPf}`);
+  for (const y of years) if (!(y.m.net > 0)) reasons.push(`سنة ${y.year}: الصافي غير موجب`);
+  if (!(md.net > 0)) reasons.push('بضعف السبريد: الصافي غير موجب');
+  if (positive < C.minPositive) reasons.push(`المتانة: ${positive} من 9 فقط (المطلوب ${C.minPositive})`);
+  if (m.n < C.minTrades) reasons.push(`${m.n} صفقة فقط (المطلوب ${C.minTrades})`);
+  const avgRr = trades.length ? trades.reduce((s, t) => s + t.rr, 0) / trades.length : 0;
+  return { m, md, mz, avgRr, buy: metrics(trades.filter((t) => t.dir === 1)), sell: metrics(trades.filter((t) => t.dir === -1)), years, grid, positive, how, reasons, pass: reasons.length === 0 };
+}
+
+function idea4(kind) {
+  const raw = data.load('xau-m15');
+  if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
+  const h1 = toH1(data.clean(raw));
+  const dev = kind === 'dev';
+  if (!dev) {
+    const d = data.load('idea4-dev-done');
+    if (!d) return console.log('⚠️ شغّل التطوير أولاً: npm run idea4');
+    if (!d.pass) return console.log('⛔ تطوير الفكرة 4 لم ينجح، فلا تأكيد (حسب البرنامج المسجل).');
+  }
+  const marker = dev ? 'idea4-dev-done' : 'idea4-confirm-done';
+  const done = data.load(marker);
+  const j = judge4(h1, dev ? (d) => d <= config.split.devTo : (d) => d >= config.split.confirmFrom);
+  const sg = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}`;
+  const info = `البيانات: ${h1.length} شمعة ساعة (${h1[0].time} → ${h1.at(-1).time}) | متوسط الهدف ${j.avgRr.toFixed(2)}R\nللمعلومة فقط (ليس شرطاً): بتكلفة Exness Zero (~${EXNESS_ZERO_COST.toFixed(2)}$) = ${j.mz.n} صفقة، PF ${Number.isFinite(j.mz.pf) ? j.mz.pf.toFixed(2) : '∞'}، ${sg(j.mz.net)}R${done ? `\n⚠️ شُغّل من قبل (${done.at}). النتيجة الأولى هي المعتمدة؛ هذه إعادة عرض.` : ''}`;
+  const text = report.write(dev ? 'التطوير' : 'التأكيد', j, info, dev ? 'idea4-dev' : 'idea4-confirm');
+  console.log(text);
+  if (!done) data.save(marker, { at: new Date().toISOString(), pass: j.pass });
+}
+
 // الفكرة 2: فخ الكسر الكاذب (عكس الفكرة 1). جاءت من رؤية نتائج تطوير الفكرة 1، فالتطوير للمعلومة فقط،
 // والحكم الوحيد على التأكيد (2024 → اليوم)، مرة واحدة.
 function idea2() {
@@ -116,7 +161,7 @@ function section(kind) {
 
 if (require.main === module) {
   const cmd = process.argv[2];
-  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm')).catch((e) => {
+  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : cmd === 'idea4' ? idea4('dev') : cmd === 'idea4-confirm' ? idea4('confirm') : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm | idea4 | idea4-confirm')).catch((e) => {
     console.error('فشل:', e.message);
     console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
     process.exit(1);

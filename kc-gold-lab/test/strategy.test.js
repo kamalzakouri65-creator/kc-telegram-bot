@@ -121,3 +121,28 @@ test('الفكرة 3: الشروط كما سُجّلت، ودخول عند RSI(2
   const last = part.at(-1).time;
   assert.deepStrictEqual(idea3Trades(part).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
 });
+
+test('الفكرة 4: الشروط، وبناء الساعة، والدخول بعد لمس 61.8% وإغلاق فوقه، ولا نظر للمستقبل', () => {
+  const { RULE4, GRID4, toH1, idea4Trades } = require('../src/idea4');
+  assert.deepStrictEqual(RULE4, { level: 0.618, pivot: 5, minLegAtr: 2, window: 24, stopBufferAtr: 0.1, emaPeriod: 200 });
+  assert.deepStrictEqual(GRID4, { level: [0.5, 0.618, 0.786], pivot: [3, 5, 8] });
+  const m15 = [0, 1, 2, 3].map((k) => ({ ms: Date.UTC(2024, 0, 2, 10) + k * 900000, open: 10 + k, high: 11 + k, low: 9 + k, close: 10.5 + k }));
+  const [h] = toH1(m15);
+  assert.deepStrictEqual([h.open, h.high, h.low, h.close], [10, 14, 9, 13.5]);
+  let seed = 12;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
+  const bars = [];
+  let p = 2000;
+  for (let k = 0; k < 8000; k++) {
+    const ms = Date.UTC(2023, 0, 2) + k * 3600000;
+    const n = p + rnd() * 8 + Math.sin(k / 120) * 1.2;
+    bars.push({ ms, time: new Date(ms).toISOString().slice(0, 19).replace('T', ' '), open: p, high: Math.max(p, n) + Math.abs(rnd()) * 3, low: Math.min(p, n) - Math.abs(rnd()) * 3, close: n });
+    p = n;
+  }
+  const full = idea4Trades(bars);
+  assert.ok(full.length > 10, 'يجب أن تظهر صفقات');
+  assert.ok(full.every((t) => t.rr > 0));
+  const part = bars.slice(0, 5000);
+  const last = part.at(-1).time;
+  assert.deepStrictEqual(idea4Trades(part).filter((t) => t.exitTime < last), full.filter((t) => t.exitTime < last));
+});
