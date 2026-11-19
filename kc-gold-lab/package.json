@@ -12,7 +12,9 @@
     "idea3": "node src/main.js idea3",
     "idea3-confirm": "node src/main.js idea3-confirm",
     "idea4": "node src/main.js idea4",
-    "idea4-confirm": "node src/main.js idea4-confirm"
+    "idea4-confirm": "node src/main.js idea4-confirm",
+    "idea5": "node src/main.js idea5",
+    "idea5-confirm": "node src/main.js idea5-confirm"
   },
   "engines": {
     "node": ">=18"

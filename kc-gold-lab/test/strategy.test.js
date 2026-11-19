@@ -146,3 +146,24 @@ test('الفكرة 4: الشروط، وبناء الساعة، والدخول ب
   const last = part.at(-1).time;
   assert.deepStrictEqual(idea4Trades(part).filter((t) => t.exitTime < last), full.filter((t) => t.exitTime < last));
 });
+
+test('الفكرة 5: الشروط كما سُجّلت، وصفقات بالاتجاهين، ولا نظر للمستقبل', () => {
+  const { RULE5, GRID5, idea5Trades } = require('../src/idea5');
+  assert.deepStrictEqual(RULE5, { h1Pivot: 5, m15Pivot: 3, fvgAtr: 0.3, trapAtr: 0.1, validH1: 48, confirmM15: 32, stopBufferAtr: 0.1, maxHoldM15: 288 });
+  assert.deepStrictEqual(GRID5, { h1Pivot: [3, 5, 8], m15Pivot: [2, 3, 5] });
+  let seed = 17;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
+  const bars = [];
+  let p = 2000;
+  for (let k = 0; k < 96 * 400; k++) {
+    const ms = Date.UTC(2023, 0, 2) + k * 900000;
+    const n = p + rnd() * 3 + Math.sin(k / 300) * 0.4 + (rnd() > 0.495 ? (rnd() > 0 ? 6 : -6) : 0);
+    bars.push({ ms, time: new Date(ms).toISOString().slice(0, 19).replace('T', ' '), open: p, high: Math.max(p, n) + Math.abs(rnd()), low: Math.min(p, n) - Math.abs(rnd()), close: n });
+    p = n;
+  }
+  const full = idea5Trades(bars);
+  assert.ok(full.length > 5, `يجب أن تظهر صفقات (${full.length})`);
+  const part = bars.slice(0, 96 * 250);
+  const last = part.at(-1).time;
+  assert.deepStrictEqual(idea5Trades(part).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
+});
