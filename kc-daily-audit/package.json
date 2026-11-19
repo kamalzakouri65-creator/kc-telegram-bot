@@ -12,7 +12,8 @@
     "research": "node src/research.js",
     "overnight": "node src/overnight.js",
     "ibs": "node src/ibs.js",
-    "holiday": "node src/holiday.js"
+    "holiday": "node src/holiday.js",
+    "sectors": "node src/sectors.js"
   },
   "engines": {
     "node": ">=18"
