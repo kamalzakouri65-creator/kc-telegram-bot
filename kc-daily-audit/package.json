@@ -15,7 +15,8 @@
     "holiday": "node src/holiday.js",
     "sectors": "node src/sectors.js",
     "forward-xly": "node src/forward.js xly",
-    "crypto-more": "node src/crypto-more.js"
+    "crypto-more": "node src/crypto-more.js",
+    "forex-daily": "node src/forex-daily.js"
   },
   "engines": {
     "node": ">=18"
