@@ -7,8 +7,8 @@ const { signals } = require('./strategy');
 const { simulate, metrics } = require('./backtest');
 const report = require('./report');
 
-function judge(bars, inSection) {
-  const run = (rule, opts) => simulate(bars, signals(bars, rule), opts).filter((t) => inSection(t.day));
+function judge(bars, inSection, { fade = false } = {}) {
+  const run = (rule, opts) => simulate(bars, signals(bars, rule, { fade }), opts).filter((t) => inSection(t.day));
   const trades = run(config.rule);
   const m = metrics(trades);
   const md = metrics(run(config.rule, { spreadMult: 2 }));
@@ -35,6 +35,22 @@ async function fetchAll() {
   console.log('الخطوة التالية: npm run dev');
 }
 
+// الفكرة 2: فخ الكسر الكاذب (عكس الفكرة 1). جاءت من رؤية نتائج تطوير الفكرة 1، فالتطوير للمعلومة فقط،
+// والحكم الوحيد على التأكيد (2024 → اليوم)، مرة واحدة.
+function idea2() {
+  const raw = data.load('xau-m15');
+  if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
+  const bars = data.clean(raw);
+  const done = data.load('idea2-done');
+  const info = `البيانات: ${bars[0].time} → ${bars.at(-1).time}${done ? `\n⚠️ شُغّل من قبل (${done.at}). النتيجة الأولى هي المعتمدة؛ هذه إعادة عرض.` : ''}`;
+  const devJ = judge(bars, (d) => d <= config.split.devTo, { fade: true });
+  const j = judge(bars, (d) => d >= config.split.confirmFrom, { fade: true });
+  const text = report.write('الفكرة 2 — التأكيد', j, `${info}\nللمعلومة فقط (لا يُحكم عليه لأن الفكرة جاءت منه): التطوير 2020–2023 = ${devJ.m.n} صفقة، PF ${Number.isFinite(devJ.m.pf) ? devJ.m.pf.toFixed(2) : '∞'}، ${devJ.m.net >= 0 ? '+' : ''}${devJ.m.net.toFixed(1)}R`, 'idea2');
+  console.log(text);
+  if (!done) data.save('idea2-done', { at: new Date().toISOString(), pass: j.pass });
+  console.log('\nالتقارير في مجلد reports/ (idea2-report.txt و CSV و HTML)');
+}
+
 function section(kind) {
   const raw = data.load('xau-m15');
   if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
@@ -57,7 +73,7 @@ function section(kind) {
 
 if (require.main === module) {
   const cmd = process.argv[2];
-  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : console.log('الأوامر: fetch | dev | confirm')).catch((e) => {
+  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : console.log('الأوامر: fetch | dev | confirm | idea2')).catch((e) => {
     console.error('فشل:', e.message);
     console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
     process.exit(1);

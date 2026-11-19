@@ -7,8 +7,9 @@ const sgn = (x, d = 1) => `${x >= 0 ? '+' : ''}${x.toFixed(d)}`;
 const pf = (m) => (m.n === 0 ? '—' : Number.isFinite(m.pf) ? m.pf.toFixed(2) : '∞');
 const row = (label, m) => `${label}: ${m.n} صفقة | ربح ${m.winRate.toFixed(0)}% | PF ${pf(m)} | ${sgn(m.net)}R | تراجع ${m.maxDd.toFixed(1)}R | Exp ${sgn(m.exp, 3)}R`;
 
-function write(section, j, info) {
-  const L = [`KC GOLD LAB — الفكرة 1: اختراق نطاق آسيا عند افتتاح لندن — ${section}`, info, `التكاليف: سبريد ${config.costs.spread}$ + انزلاق ${config.costs.slippage}$ لكل صفقة.`, ''];
+function write(section, j, info, tagOverride) {
+  const title = tagOverride === 'idea2' ? 'الفكرة 2: فخ الكسر الكاذب لنطاق آسيا (عكس الفكرة 1)' : 'الفكرة 1: اختراق نطاق آسيا عند افتتاح لندن';
+  const L = [`KC GOLD LAB — ${title} — ${section}`, info, `التكاليف: سبريد ${config.costs.spread}$ + انزلاق ${config.costs.slippage}$ لكل صفقة.`, ''];
   L.push(row('الكل', j.m), row('بضعف السبريد', j.md), row('شراء', j.buy), row('بيع', j.sell), '', 'كل سنة:');
   for (const y of j.years) L.push(`   ${row(y.year, y.m)}`);
   L.push('', `طريقة الخروج: ${Object.entries(j.how).map(([k, n]) => `${k} ${n}`).join(' | ')}`, '', `المتانة: ${j.positive} من 9 (الهدف × الوقف من النطاق)`);
@@ -16,7 +17,7 @@ function write(section, j, info) {
   L.push('', `━━ الحكم: ${j.pass ? '✅ نجح' : '❌ لم ينجح'}`, ...j.reasons.map((r) => `   - ${r}`), '', 'R = المبلغ الذي تخاطر به في الصفقة. اختبار تاريخي فقط، لا تداول.');
   const text = L.join('\n');
   fs.mkdirSync(config.paths.reports, { recursive: true });
-  const tag = section === 'التطوير' ? 'dev' : 'confirm';
+  const tag = tagOverride ?? (section === 'التطوير' ? 'dev' : 'confirm');
   fs.writeFileSync(path.join(config.paths.reports, `${tag}-report.txt`), text);
   fs.writeFileSync(path.join(config.paths.reports, `${tag}-results_9_combinations.csv`), ['rr,stop_frac,trades,win_rate,pf,net_r,max_dd_r', ...j.grid.map((g) => [g.rr, g.stopFrac, g.m.n, g.m.winRate.toFixed(1), pf(g.m), g.m.net.toFixed(2), g.m.maxDd.toFixed(2)].join(','))].join('\n'));
   fs.writeFileSync(path.join(config.paths.reports, `${tag}-yearly_results.csv`), ['year,trades,win_rate,pf,net_r,max_dd_r', ...j.years.map((y) => [y.year, y.m.n, y.m.winRate.toFixed(1), pf(y.m), y.m.net.toFixed(2), y.m.maxDd.toFixed(2)].join(','))].join('\n'));

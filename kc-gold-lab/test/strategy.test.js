@@ -90,3 +90,12 @@ test('لا نظر للمستقبل: قطع البيانات لا يغيّر ال
     assert.deepStrictEqual(simulate(part, signals(part)).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
   }
 });
+
+test('الفكرة 2: نفس الإشارة بالعكس، والوقف خلف الدخول بنفس المسافة', () => {
+  const bars = makeDays(25, { lastDay: breakout });
+  const a = signals(bars).at(-1);
+  const b = signals(bars, config.rule, { fade: true }).at(-1);
+  assert.deepStrictEqual([b.time, b.entry, b.dir, b.risk], [a.time, a.entry, -1, a.risk]);
+  assert.ok(Math.abs(b.stop - (a.entry + a.risk)) < 1e-9);
+  assert.ok(Math.abs(b.target - (a.entry - 1.5 * a.risk)) < 1e-9);
+});

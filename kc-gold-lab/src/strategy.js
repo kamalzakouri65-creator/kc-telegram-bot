@@ -3,7 +3,9 @@ const { config } = require('./config');
 const { byLondonDay, asianRange } = require('./sessions');
 const { trendByDay } = require('./trend');
 
-function signals(bars, rule = config.rule) {
+// fade=true (الفكرة 2): نفس إشارات الفكرة 1 تماماً، لكن بالعكس: البيع عند الكسر للأعلى والشراء عند الكسر للأسفل.
+// المخاطرة بنفس المسافة (من الدخول إلى الوقف في الفكرة 1)، والوقف فوق الدخول (أو تحته)، والهدف rr × المخاطرة.
+function signals(bars, rule = config.rule, { fade = false } = {}) {
   const days = byLondonDay(bars);
   const trend = trendByDay(days, rule.trendDays);
   const out = [];
@@ -19,7 +21,11 @@ function signals(bars, rule = config.rule) {
       if (side === dir) {
         const stop = side === 1 ? r.high - rule.stopFrac * r.size : r.low + rule.stopFrac * r.size;
         const risk = side * (b.close - stop);
-        if (risk > 0) out.push({ day, ms: b.ms, time: b.time, dir: side, entry: b.close, stop, risk, target: b.close + side * rule.rr * risk });
+        if (risk > 0) {
+          const d = fade ? -side : side;
+          const st = fade ? b.close + side * risk : stop;
+          out.push({ day, ms: b.ms, time: b.time, dir: d, entry: b.close, stop: st, risk, target: b.close + d * rule.rr * risk });
+        }
       }
       break; // أول كسر فقط في اليوم، حتى لو كان عكس الفلتر
     }
