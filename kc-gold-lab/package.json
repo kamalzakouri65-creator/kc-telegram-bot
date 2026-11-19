@@ -1,0 +1,13 @@
+{
+  "name": "kc-gold-lab",
+  "version": "1.0.0",
+  "description": "برنامج بحث الذهب — الفكرة 1: اختراق نطاق آسيا عند افتتاح لندن (اختبار تاريخي فقط، بدون أي تداول)",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch": "node src/main.js fetch",
+    "dev": "node src/main.js dev",
+    "confirm": "node src/main.js confirm"
+  },
+  "engines": { "node": ">=18" }
+}
