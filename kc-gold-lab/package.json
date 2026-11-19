@@ -8,7 +8,9 @@
     "fetch": "node src/main.js fetch",
     "dev": "node src/main.js dev",
     "confirm": "node src/main.js confirm",
-    "idea2": "node src/main.js idea2"
+    "idea2": "node src/main.js idea2",
+    "idea3": "node src/main.js idea3",
+    "idea3-confirm": "node src/main.js idea3-confirm"
   },
   "engines": {
     "node": ">=18"

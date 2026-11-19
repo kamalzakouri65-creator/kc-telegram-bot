@@ -6,6 +6,7 @@ const data = require('./data');
 const { signals } = require('./strategy');
 const { simulate, metrics } = require('./backtest');
 const report = require('./report');
+const { RULE3, GRID3, idea3Trades } = require('./idea3');
 
 function judge(bars, inSection, { fade = false } = {}) {
   const run = (rule, opts) => simulate(bars, signals(bars, rule, { fade }), opts).filter((t) => inSection(t.day));
@@ -33,6 +34,48 @@ async function fetchAll() {
   const { candles, reason } = await data.fetchM15({ onPage: (n, oldest) => console.log(`  ${n} شمعة، الأقدم: ${oldest}`) });
   console.log(`\nانتهى (${reason}): ${candles.length} شمعة من ${candles[0]?.time} إلى ${candles.at(-1)?.time}`);
   console.log('الخطوة التالية: npm run dev');
+}
+
+// الفكرة 3: الحكم بنفس الشروط، والتطوير ثم التأكيد مرة واحدة
+function judge3(bars, inSection) {
+  const run = (rule, opts) => idea3Trades(bars, rule, opts).filter((t) => inSection(t.day));
+  const trades = run(RULE3);
+  const m = metrics(trades);
+  const md = metrics(run(RULE3, { spreadMult: 2 }));
+  const years = [...new Set(trades.map((t) => t.year))].sort().map((year) => ({ year, m: metrics(trades.filter((t) => t.year === year)) }));
+  const grid = [];
+  for (const rr of GRID3.rsiBelow) for (const stopFrac of GRID3.exitSma) grid.push({ rr, stopFrac, m: metrics(run({ ...RULE3, rsiBelow: rr, exitSma: stopFrac })) });
+  const positive = grid.filter((g) => g.m.net > 0).length;
+  const how = {};
+  for (const t of trades) how[t.how] = (how[t.how] ?? 0) + 1;
+  const C = config.criteria;
+  const reasons = [];
+  if (!(m.pf >= C.minPf)) reasons.push(`PF ${Number.isFinite(m.pf) ? m.pf.toFixed(2) : '∞'} أقل من ${C.minPf}`);
+  for (const y of years) if (!(y.m.net > 0)) reasons.push(`سنة ${y.year}: الصافي غير موجب`);
+  if (!(md.net > 0)) reasons.push('بضعف السبريد: الصافي غير موجب');
+  if (positive < C.minPositive) reasons.push(`المتانة: ${positive} من 9 فقط (المطلوب ${C.minPositive})`);
+  if (m.n < C.minTrades) reasons.push(`${m.n} صفقة فقط (المطلوب ${C.minTrades})`);
+  const days = new Set(trades.map((t) => t.day)).size;
+  return { m, md, buy: metrics(trades.filter((t) => t.dir === 1)), sell: metrics(trades.filter((t) => t.dir === -1)), years, grid, positive, how, reasons, pass: reasons.length === 0, perDay: days ? trades.length / days : 0 };
+}
+
+function idea3(kind) {
+  const raw = data.load('xau-m15');
+  if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
+  const bars = data.clean(raw);
+  const dev = kind === 'dev';
+  if (!dev) {
+    const d = data.load('idea3-dev-done');
+    if (!d) return console.log('⚠️ شغّل التطوير أولاً: npm run idea3');
+    if (!d.pass) return console.log('⛔ تطوير الفكرة 3 لم ينجح، فلا تأكيد (حسب البرنامج المسجل).');
+  }
+  const marker = dev ? 'idea3-dev-done' : 'idea3-confirm-done';
+  const done = data.load(marker);
+  const j = judge3(bars, dev ? (d) => d <= config.split.devTo : (d) => d >= config.split.confirmFrom);
+  const info = `البيانات: ${bars[0].time} → ${bars.at(-1).time} | متوسط الصفقات في يوم التداول: ${j.perDay.toFixed(2)}${done ? `\n⚠️ شُغّل من قبل (${done.at}). النتيجة الأولى هي المعتمدة؛ هذه إعادة عرض.` : ''}`;
+  const text = report.write(dev ? 'التطوير' : 'التأكيد', j, info, dev ? 'idea3-dev' : 'idea3-confirm');
+  console.log(text);
+  if (!done) data.save(marker, { at: new Date().toISOString(), pass: j.pass });
 }
 
 // الفكرة 2: فخ الكسر الكاذب (عكس الفكرة 1). جاءت من رؤية نتائج تطوير الفكرة 1، فالتطوير للمعلومة فقط،
@@ -73,7 +116,7 @@ function section(kind) {
 
 if (require.main === module) {
   const cmd = process.argv[2];
-  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : console.log('الأوامر: fetch | dev | confirm | idea2')).catch((e) => {
+  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm')).catch((e) => {
     console.error('فشل:', e.message);
     console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
     process.exit(1);

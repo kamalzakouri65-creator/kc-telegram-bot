@@ -99,3 +99,25 @@ test('الفكرة 2: نفس الإشارة بالعكس، والوقف خلف �
   assert.ok(Math.abs(b.stop - (a.entry + a.risk)) < 1e-9);
   assert.ok(Math.abs(b.target - (a.entry - 1.5 * a.risk)) < 1e-9);
 });
+
+test('الفكرة 3: الشروط كما سُجّلت، ودخول عند RSI(2) منخفض في اتجاه صاعد، ولا نظر للمستقبل', () => {
+  const { RULE3, GRID3, idea3Trades } = require('../src/idea3');
+  assert.deepStrictEqual(RULE3, { rsiBelow: 10, exitSma: 5, maxBars: 8, stopAtr: 2, minRisk: 3, from: 7, to: 20, trendDays: 20 });
+  assert.deepStrictEqual(GRID3, { rsiBelow: [5, 10, 15], exitSma: [3, 5, 8] });
+  let seed = 4;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
+  const bars = [];
+  let p = 2000;
+  for (let k = 0; k < 96 * 80; k++) {
+    const ms = Date.UTC(2024, 0, 1) + k * 900000;
+    const n = p + rnd() * 3 + 0.02;
+    bars.push({ time: new Date(ms).toISOString().slice(0, 19).replace('T', ' '), ms, open: p, high: Math.max(p, n) + Math.abs(rnd()) * 2, low: Math.min(p, n) - Math.abs(rnd()) * 2, close: n });
+    p = n;
+  }
+  const full = idea3Trades(bars);
+  assert.ok(full.length > 20, 'يجب أن تظهر صفقات');
+  assert.ok(full.every((t) => t.time.slice(0, 10) === t.exitTime.slice(0, 10) || t.how !== 'وقت'));
+  const part = bars.slice(0, 96 * 50);
+  const last = part.at(-1).time;
+  assert.deepStrictEqual(idea3Trades(part).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
+});
