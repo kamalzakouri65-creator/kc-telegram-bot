@@ -12,6 +12,9 @@ const { toH1 } = require('./idea4');
 
 const RULE5 = { h1Pivot: 5, m15Pivot: 3, fvgAtr: 0.3, trapAtr: 0.1, validH1: 48, confirmM15: 32, stopBufferAtr: 0.1, maxHoldM15: 288 };
 const GRID5 = { h1Pivot: [3, 5, 8], m15Pivot: [2, 3, 5] };
+// النسخة 2 (مسجلة 2026-11-20 بعد تشخيص التطوير، قبل أي نظر لبيانات 2024+): ثلاثة تغييرات فقط
+//   1) FVG بأي حجم موجب (كما في الفيديو)، 2) CHoCH خلال 24 ساعة، 3) الوقف المتحرك تحت قيعان الساعة المؤكدة
+const RULE5B = { ...RULE5, fvgAtr: 0, confirmM15: 96, trail: 'h1' };
 const SWAP_PCT = 0.02;
 const HOUR = 3600000;
 
@@ -85,7 +88,10 @@ function longCandidates(m15, rule, diag = null) {
     if (k < 0) continue;
     inc('2. وُجد OB');
     let fvg = false;
-    for (let m = k + 1; m <= i - 1 && !fvg; m++) if (h1[m + 1].low - h1[m - 1].high >= rule.fvgAtr * aH[i]) fvg = true;
+    for (let m = k + 1; m <= i - 1 && !fvg; m++) {
+      const gap = h1[m + 1].low - h1[m - 1].high;
+      if (gap > 0 && gap >= rule.fvgAtr * aH[i]) fvg = true;
+    }
     if (!fvg) continue;
     inc('3. ومعه FVG');
     const zone = { low: h1[k].low, high: h1[k].high };
@@ -129,6 +135,7 @@ function longCandidates(m15, rule, diag = null) {
     let exit = null;
     let how = null;
     let lowPtr = 0;
+    let hLowPtr = 0;
     let best = e;
     let worst = e;
     for (let t = entry + 1; t < m15.length; t++) {
@@ -143,14 +150,23 @@ function longCandidates(m15, rule, diag = null) {
         [exitIdx, exit, how] = [t, b.close, 'وقت'];
         break;
       }
-      // رفع الوقف تحت القيعان الأعلى المؤكدة بعد الدخول
-      while (lowPtr < pM.lows.length && pM.lows[lowPtr].known <= t) {
-        const l = pM.lows[lowPtr++];
-        if (l.j > entry && aM[t] !== null) {
-          const ns = l.price - rule.stopBufferAtr * aM[t];
-          if (ns > stop) stop = ns;
+      // رفع الوقف تحت القيعان الأعلى المؤكدة بعد الدخول (على 15 دقيقة، أو على الساعة في النسخة 2)
+      if (rule.trail === 'h1') {
+        while (hLowPtr < pH.lows.length && pH.lows[hLowPtr].known < m2h[t]) {
+          const l = pH.lows[hLowPtr++];
+          if (l.j > m2h[entry] && aH[m2h[t]] !== null) {
+            const ns = l.price - rule.stopBufferAtr * aH[m2h[t]];
+            if (ns > stop) stop = ns;
+          }
         }
-      }
+      } else
+        while (lowPtr < pM.lows.length && pM.lows[lowPtr].known <= t) {
+          const l = pM.lows[lowPtr++];
+          if (l.j > entry && aM[t] !== null) {
+            const ns = l.price - rule.stopBufferAtr * aM[t];
+            if (ns > stop) stop = ns;
+          }
+        }
     }
     if (exitIdx < 0) continue;
     out.push({ entryIdx: entry, exitIdx, entry: e, exit, risk, how, mfe: (best - e) / risk, mae: (e - worst) / risk, hours: (exitIdx - entry) / 4, zoneAtr: (zone.high - zone.low) / aH[i] });
@@ -186,4 +202,4 @@ function idea5Diagnose(m15, rule = RULE5) {
   return { buyDiag, sellDiag, cands: [...buys, ...sells].map((x) => ({ ...x, day: day(x), year: day(x).slice(0, 4) })) };
 }
 
-module.exports = { RULE5, GRID5, idea5Trades, idea5Diagnose };
+module.exports = { RULE5, RULE5B, GRID5, idea5Trades, idea5Diagnose };

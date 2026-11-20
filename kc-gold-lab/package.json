@@ -15,7 +15,8 @@
     "idea4-confirm": "node src/main.js idea4-confirm",
     "idea5": "node src/main.js idea5",
     "idea5-confirm": "node src/main.js idea5-confirm",
-    "idea5-diag": "node src/main.js idea5-diag"
+    "idea5-diag": "node src/main.js idea5-diag",
+    "idea5b": "node src/main.js idea5b"
   },
   "engines": {
     "node": ">=18"

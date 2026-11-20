@@ -8,7 +8,7 @@ const { simulate, metrics } = require('./backtest');
 const report = require('./report');
 const { RULE3, GRID3, idea3Trades } = require('./idea3');
 const { RULE4, GRID4, EXNESS_ZERO_COST, toH1, idea4Trades } = require('./idea4');
-const { RULE5, GRID5, idea5Trades, idea5Diagnose } = require('./idea5');
+const { RULE5, RULE5B, GRID5, idea5Trades, idea5Diagnose } = require('./idea5');
 
 function judge(bars, inSection, { fade = false } = {}) {
   const run = (rule, opts) => simulate(bars, signals(bars, rule, { fade }), opts).filter((t) => inSection(t.day));
@@ -125,15 +125,15 @@ function idea4(kind) {
 }
 
 // الفكرة 5: SMC متعدد الأطر
-function judge5(m15, inSection) {
+function judge5(m15, inSection, base = RULE5, minTrades = config.criteria.minTrades) {
   const run = (rule, opts) => idea5Trades(m15, rule, opts).filter((t) => inSection(t.day));
-  const trades = run(RULE5);
+  const trades = run(base);
   const m = metrics(trades);
-  const md = metrics(run(RULE5, { spreadMult: 2 }));
-  const mz = metrics(run(RULE5, { cost: EXNESS_ZERO_COST }));
+  const md = metrics(run(base, { spreadMult: 2 }));
+  const mz = metrics(run(base, { cost: EXNESS_ZERO_COST }));
   const years = [...new Set(trades.map((t) => t.year))].sort().map((year) => ({ year, m: metrics(trades.filter((t) => t.year === year)) }));
   const grid = [];
-  for (const rr of GRID5.h1Pivot) for (const stopFrac of GRID5.m15Pivot) grid.push({ rr, stopFrac, m: metrics(run({ ...RULE5, h1Pivot: rr, m15Pivot: stopFrac })) });
+  for (const rr of GRID5.h1Pivot) for (const stopFrac of GRID5.m15Pivot) grid.push({ rr, stopFrac, m: metrics(run({ ...base, h1Pivot: rr, m15Pivot: stopFrac })) });
   const positive = grid.filter((g) => g.m.net > 0).length;
   const how = {};
   for (const t of trades) how[t.how] = (how[t.how] ?? 0) + 1;
@@ -143,7 +143,7 @@ function judge5(m15, inSection) {
   for (const y of years) if (!(y.m.net > 0)) reasons.push(`سنة ${y.year}: الصافي غير موجب`);
   if (!(md.net > 0)) reasons.push('بضعف السبريد: الصافي غير موجب');
   if (positive < C.minPositive) reasons.push(`المتانة: ${positive} من 9 فقط (المطلوب ${C.minPositive})`);
-  if (m.n < C.minTrades) reasons.push(`${m.n} صفقة فقط (المطلوب ${C.minTrades})`);
+  if (m.n < minTrades) reasons.push(`${m.n} صفقة فقط (المطلوب ${minTrades})`);
   return { m, md, mz, buy: metrics(trades.filter((t) => t.dir === 1)), sell: metrics(trades.filter((t) => t.dir === -1)), years, grid, positive, how, reasons, pass: reasons.length === 0 };
 }
 
@@ -166,6 +166,24 @@ function idea5(kind) {
   const text = report.write(dev ? 'التطوير' : 'التأكيد', j, info, dev ? 'idea5-dev' : 'idea5-confirm');
   console.log(text);
   if (!done) data.save(marker, { at: new Date().toISOString(), pass: j.pass });
+}
+
+// الفكرة 5 — النسخة 2: الحكم مرة واحدة على التأكيد (2024 → اليوم) فقط، بحد 60 صفقة (مسجل 2026-11-20).
+// التطوير يُعرض للمعلومة لأن التغييرات اختيرت بعد تشخيصه.
+function idea5b() {
+  const raw = data.load('xau-m15');
+  if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
+  const m15 = data.clean(raw);
+  const done = data.load('idea5b-done');
+  console.log('⏳ الحساب قد يأخذ دقيقتين أو ثلاث...');
+  const devJ = judge5(m15.filter((b) => b.time.slice(0, 10) <= config.split.devTo), () => true, RULE5B, 60);
+  const j = judge5(m15, (d) => d >= config.split.confirmFrom, RULE5B, 60);
+  const sg = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}`;
+  const pfs = (m) => (Number.isFinite(m.pf) ? m.pf.toFixed(2) : '∞');
+  const info = `البيانات: ${m15[0].time} → ${m15.at(-1).time}\nللمعلومة فقط (لا يُحكم عليه، لأن التغييرات اختيرت منه): التطوير 2020–2023 = ${devJ.m.n} صفقة، PF ${pfs(devJ.m)}، ${sg(devJ.m.net)}R\nللمعلومة فقط: بتكلفة Exness Zero = ${j.mz.n} صفقة، PF ${pfs(j.mz)}، ${sg(j.mz.net)}R${done ? `\n⚠️ شُغّل من قبل (${done.at}). النتيجة الأولى هي المعتمدة؛ هذه إعادة عرض.` : ''}`;
+  const text = report.write('النسخة 2 — التأكيد (2024 → اليوم)', j, info, 'idea5b');
+  console.log(text);
+  if (!done) data.save('idea5b-done', { at: new Date().toISOString(), pass: j.pass });
 }
 
 // تشخيص الفكرة 5 على التطوير فقط (2020–2023). لا يلمس بيانات التأكيد أبداً.
@@ -239,7 +257,7 @@ function section(kind) {
 
 if (require.main === module) {
   const cmd = process.argv[2];
-  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : cmd === 'idea4' ? idea4('dev') : cmd === 'idea4-confirm' ? idea4('confirm') : cmd === 'idea5' ? idea5('dev') : cmd === 'idea5-confirm' ? idea5('confirm') : cmd === 'idea5-diag' ? idea5Diag() : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm | idea4 | idea4-confirm | idea5 | idea5-confirm')).catch((e) => {
+  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : cmd === 'idea4' ? idea4('dev') : cmd === 'idea4-confirm' ? idea4('confirm') : cmd === 'idea5' ? idea5('dev') : cmd === 'idea5-confirm' ? idea5('confirm') : cmd === 'idea5-diag' ? idea5Diag() : cmd === 'idea5b' ? idea5b() : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm | idea4 | idea4-confirm | idea5 | idea5-confirm')).catch((e) => {
     console.error('فشل:', e.message);
     console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
     process.exit(1);

@@ -167,3 +167,29 @@ test('الفكرة 5: الشروط كما سُجّلت، وصفقات بالات
   const last = part.at(-1).time;
   assert.deepStrictEqual(idea5Trades(part).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
 });
+
+test('الفكرة 5 النسخة 2: التغييرات الثلاثة فقط', () => {
+  const { RULE5, RULE5B } = require('../src/idea5');
+  const diff = Object.keys(RULE5B).filter((k) => RULE5B[k] !== RULE5[k]).sort();
+  assert.deepStrictEqual(diff, ['confirmM15', 'fvgAtr', 'trail']);
+  assert.deepStrictEqual([RULE5B.fvgAtr, RULE5B.confirmM15, RULE5B.trail], [0, 96, 'h1']);
+});
+
+test('الفكرة 5 النسخة 2: لا نظر للمستقبل مع الوقف المتحرك على الساعة', () => {
+  const { RULE5B, idea5Trades } = require('../src/idea5');
+  let seed = 23;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
+  const bars = [];
+  let p = 2000;
+  for (let k = 0; k < 96 * 400; k++) {
+    const ms = Date.UTC(2023, 0, 2) + k * 900000;
+    const n = p + rnd() * 3 + Math.sin(k / 300) * 0.4 + (rnd() > 0.495 ? (rnd() > 0 ? 6 : -6) : 0);
+    bars.push({ ms, time: new Date(ms).toISOString().slice(0, 19).replace('T', ' '), open: p, high: Math.max(p, n) + Math.abs(rnd()), low: Math.min(p, n) - Math.abs(rnd()), close: n });
+    p = n;
+  }
+  const full = idea5Trades(bars, RULE5B);
+  assert.ok(full.length > 5);
+  const part = bars.slice(0, 96 * 250);
+  const last = part.at(-1).time;
+  assert.deepStrictEqual(idea5Trades(part, RULE5B).filter((t) => t.exitTime < last && t.how !== 'وقت'), full.filter((t) => t.exitTime < last && t.how !== 'وقت'));
+});
