@@ -51,7 +51,9 @@ const nights = (fromMs, toMs) => {
 const flip = (bars) => bars.map((b) => ({ ...b, open: -b.open, high: -b.low, low: -b.high, close: -b.close }));
 
 // صفقات الشراء على بيانات (قد تكون مقلوبة للبيع)
-function longCandidates(m15, rule) {
+function longCandidates(m15, rule, diag = null) {
+  const D = diag ?? {};
+  const inc = (k) => (D[k] = (D[k] ?? 0) + 1);
   const h1 = toH1(m15);
   const hIdx = new Map(h1.map((b, i) => [b.ms, i]));
   const m2h = m15.map((b) => hIdx.get(Math.floor(b.ms / HOUR) * HOUR));
@@ -73,6 +75,7 @@ function longCandidates(m15, rule) {
     if (!hp || aH[i] === null) continue;
     const H = pH.highs[hp - 1];
     if (!(h1[i].close > H.price && h1[i - 1].close <= H.price)) continue;
+    inc('1. كسر هيكل BOS');
     // OB: آخر شمعة هابطة قبل شمعة الكسر وبعد القمة
     let k = -1;
     for (let x = i - 1; x > H.j; x--) if (h1[x].close < h1[x].open) {
@@ -80,15 +83,18 @@ function longCandidates(m15, rule) {
       break;
     }
     if (k < 0) continue;
+    inc('2. وُجد OB');
     let fvg = false;
     for (let m = k + 1; m <= i - 1 && !fvg; m++) if (h1[m + 1].low - h1[m - 1].high >= rule.fvgAtr * aH[i]) fvg = true;
     if (!fvg) continue;
+    inc('3. ومعه FVG');
     const zone = { low: h1[k].low, high: h1[k].high };
     // فخ السيولة: قاعان متتاليان متساويان بين أعلى المنطقة وقمة الكسر
     const between = pH.lows.slice(0, lp).filter((l) => l.price > zone.high && l.price < H.price);
     let trap = false;
     for (let q = 1; q < between.length && !trap; q++) if (Math.abs(between[q].price - between[q - 1].price) < rule.trapAtr * aH[i]) trap = true;
     if (trap) continue;
+    inc('4. نجا من فلتر الفخ');
     // المتابعة على 15 دقيقة
     const start = firstM15OfH1.get(i + 1);
     if (start === undefined) continue;
@@ -112,7 +118,9 @@ function longCandidates(m15, rule) {
       }
       if (lastOfHour[t] && b.close < zone.low) break; // إغلاق ساعة تحت المنطقة
     }
+    if (touch >= 0) inc('5. لمس المنطقة خلال 48 ساعة');
     if (entry < 0) continue;
+    inc('6. تأكيد CHoCH خلال 8 ساعات');
     const e = m15[entry].close;
     let stop = sweep - rule.stopBufferAtr * aH[i];
     const risk = e - stop;
@@ -121,8 +129,12 @@ function longCandidates(m15, rule) {
     let exit = null;
     let how = null;
     let lowPtr = 0;
+    let best = e;
+    let worst = e;
     for (let t = entry + 1; t < m15.length; t++) {
       const b = m15[t];
+      best = Math.max(best, b.high);
+      worst = Math.min(worst, b.low);
       if (b.low <= stop) {
         [exitIdx, exit, how] = [t, Math.min(stop, b.open), stop > e ? 'وقف متحرك (ربح)' : 'وقف'];
         break;
@@ -141,7 +153,7 @@ function longCandidates(m15, rule) {
       }
     }
     if (exitIdx < 0) continue;
-    out.push({ entryIdx: entry, exitIdx, entry: e, exit, risk, how });
+    out.push({ entryIdx: entry, exitIdx, entry: e, exit, risk, how, mfe: (best - e) / risk, mae: (e - worst) / risk, hours: (exitIdx - entry) / 4, zoneAtr: (zone.high - zone.low) / aH[i] });
   }
   return out;
 }
@@ -164,4 +176,14 @@ function idea5Trades(m15, rule = RULE5, { cost = config.costs.spread + config.co
   return out;
 }
 
-module.exports = { RULE5, GRID5, idea5Trades };
+// التشخيص (للتطوير فقط): قمع الإشارات لكل اتجاه، وتفاصيل كل صفقة (أقصى ربح وخسارة ظاهرين، المدة)
+function idea5Diagnose(m15, rule = RULE5) {
+  const buyDiag = {};
+  const sellDiag = {};
+  const buys = longCandidates(m15, rule, buyDiag).map((x) => ({ ...x, dir: 1 }));
+  const sells = longCandidates(flip(m15), rule, sellDiag).map((x) => ({ ...x, dir: -1 }));
+  const day = (x) => m15[x.entryIdx].time.slice(0, 10);
+  return { buyDiag, sellDiag, cands: [...buys, ...sells].map((x) => ({ ...x, day: day(x), year: day(x).slice(0, 4) })) };
+}
+
+module.exports = { RULE5, GRID5, idea5Trades, idea5Diagnose };

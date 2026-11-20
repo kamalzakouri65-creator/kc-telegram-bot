@@ -8,7 +8,7 @@ const { simulate, metrics } = require('./backtest');
 const report = require('./report');
 const { RULE3, GRID3, idea3Trades } = require('./idea3');
 const { RULE4, GRID4, EXNESS_ZERO_COST, toH1, idea4Trades } = require('./idea4');
-const { RULE5, GRID5, idea5Trades } = require('./idea5');
+const { RULE5, GRID5, idea5Trades, idea5Diagnose } = require('./idea5');
 
 function judge(bars, inSection, { fade = false } = {}) {
   const run = (rule, opts) => simulate(bars, signals(bars, rule, { fade }), opts).filter((t) => inSection(t.day));
@@ -168,6 +168,39 @@ function idea5(kind) {
   if (!done) data.save(marker, { at: new Date().toISOString(), pass: j.pass });
 }
 
+// تشخيص الفكرة 5 على التطوير فقط (2020–2023). لا يلمس بيانات التأكيد أبداً.
+function idea5Diag() {
+  const raw = data.load('xau-m15');
+  if (!raw?.length) return console.log('⚠️ لا توجد بيانات. شغّل أولاً: npm run fetch');
+  const m15 = data.clean(raw).filter((b) => b.time.slice(0, 10) <= config.split.devTo);
+  const { buyDiag, sellDiag, cands } = idea5Diagnose(m15);
+  const L = ['KC GOLD LAB — تشخيص الفكرة 5 (التطوير 2020–2023 فقط، بيانات 2024+ لم تُلمس)', '', '━━ قمع الإشارات (كم بقي بعد كل شرط)'];
+  const keys = [...new Set([...Object.keys(buyDiag), ...Object.keys(sellDiag)])].sort();
+  for (const k of keys) L.push(`   ${k}: شراء ${buyDiag[k] ?? 0} | بيع ${sellDiag[k] ?? 0}`);
+  const n = cands.length;
+  const avg = (f, list = cands) => (list.length ? list.reduce((s, x) => s + f(x), 0) / list.length : 0);
+  L.push('', `━━ الصفقات المرشحة قبل قاعدة "صفقة واحدة" وقبل التكاليف: ${n}`);
+  L.push(`   متوسط أقصى ربح ظاهر (MFE): ${avg((x) => x.mfe).toFixed(2)}R | متوسط أقصى خسارة ظاهرة (MAE): ${avg((x) => x.mae).toFixed(2)}R`);
+  for (const lvl of [1, 1.5, 2, 3]) L.push(`   وصلت إلى +${lvl}R في وقت ما: ${cands.filter((x) => x.mfe >= lvl).length} من ${n}`);
+  L.push(`   متوسط المدة: ${avg((x) => x.hours).toFixed(1)} ساعة | متوسط عرض المنطقة: ${avg((x) => x.zoneAtr).toFixed(2)} ATR`);
+  const gross = (x) => (x.exit - x.entry) / x.risk;
+  L.push(`   متوسط النتيجة قبل التكاليف: ${avg(gross) >= 0 ? '+' : ''}${avg(gross).toFixed(3)}R`);
+  L.push('', '━━ طريقة الخروج');
+  const how = {};
+  for (const x of cands) how[x.how] = (how[x.how] ?? 0) + 1;
+  for (const [k, v] of Object.entries(how)) {
+    const list = cands.filter((x) => x.how === k);
+    L.push(`   ${k}: ${v} | متوسط النتيجة ${avg(gross, list).toFixed(2)}R | متوسط MFE ${avg((x) => x.mfe, list).toFixed(2)}R`);
+  }
+  L.push('', '━━ حسب الاتجاه والسنة (قبل التكاليف)');
+  for (const dir of [1, -1]) for (const y of ['2020', '2021', '2022', '2023']) {
+    const list = cands.filter((x) => x.dir === dir && x.year === y);
+    if (list.length) L.push(`   ${dir === 1 ? 'شراء' : 'بيع'} ${y}: ${list.length} | المجموع ${list.reduce((s, x) => s + gross(x), 0).toFixed(1)}R`);
+  }
+  L.push('', 'للتشخيص فقط. أي تعديل يُسجَّل كنسخة 2، ويُحكم عليه مرة واحدة على 2024 → اليوم.');
+  console.log(L.join('\n'));
+}
+
 // الفكرة 2: فخ الكسر الكاذب (عكس الفكرة 1). جاءت من رؤية نتائج تطوير الفكرة 1، فالتطوير للمعلومة فقط،
 // والحكم الوحيد على التأكيد (2024 → اليوم)، مرة واحدة.
 function idea2() {
@@ -206,7 +239,7 @@ function section(kind) {
 
 if (require.main === module) {
   const cmd = process.argv[2];
-  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : cmd === 'idea4' ? idea4('dev') : cmd === 'idea4-confirm' ? idea4('confirm') : cmd === 'idea5' ? idea5('dev') : cmd === 'idea5-confirm' ? idea5('confirm') : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm | idea4 | idea4-confirm | idea5 | idea5-confirm')).catch((e) => {
+  Promise.resolve(cmd === 'fetch' ? fetchAll() : cmd === 'dev' || cmd === 'confirm' ? section(cmd) : cmd === 'idea2' ? idea2() : cmd === 'idea3' ? idea3('dev') : cmd === 'idea3-confirm' ? idea3('confirm') : cmd === 'idea4' ? idea4('dev') : cmd === 'idea4-confirm' ? idea4('confirm') : cmd === 'idea5' ? idea5('dev') : cmd === 'idea5-confirm' ? idea5('confirm') : cmd === 'idea5-diag' ? idea5Diag() : console.log('الأوامر: fetch | dev | confirm | idea2 | idea3 | idea3-confirm | idea4 | idea4-confirm | idea5 | idea5-confirm')).catch((e) => {
     console.error('فشل:', e.message);
     console.error('إذا انقطع التحميل، أعد نفس الأمر وسيكمل من حيث توقف.');
     process.exit(1);
