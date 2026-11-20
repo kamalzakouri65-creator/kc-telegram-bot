@@ -1,0 +1,16 @@
+{
+  "name": "kc-gold-ob-m15-v1",
+  "version": "1.0.0",
+  "description": "GOLD ORDER BLOCK M15 V1 — اختبار تاريخي فقط على الذهب (بدون أي تداول حي أو اتصال بوسيط)",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fetch": "node src/main.js fetch",
+    "quality": "node src/main.js quality",
+    "baseline": "node src/main.js baseline",
+    "report": "node src/main.js report"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
