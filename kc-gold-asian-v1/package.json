@@ -1,0 +1,15 @@
+{
+  "name": "kc-gold-asian-v1",
+  "version": "1.0.0",
+  "description": "GOLD ASIAN RANGE BREAKOUT V1 — اختبار تاريخي فقط على الذهب (بدون أي تداول أو اتصال بوسيط)",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "quality": "node src/main.js quality",
+    "backtest": "node src/main.js backtest",
+    "report": "node src/main.js report"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
